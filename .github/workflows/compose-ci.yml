@@ -1,0 +1,110 @@
+name: CI - Build and verify with Docker Compose
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  compose:
+    name: Build, up, smoke-test, and archive Mongo
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Show Docker versions
+        run: |
+          docker --version
+          docker compose version || docker-compose --version || true
+
+      - name: Build images
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            docker compose -f docker-compose.yml build
+          else
+            docker-compose -f docker-compose.yml build
+          fi
+
+      - name: Start services
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            docker compose -f docker-compose.yml up -d
+          else
+            docker-compose -f docker-compose.yml up -d
+          fi
+
+      - name: Wait for API health
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for i in {1..120}; do
+            if curl -fsS http://localhost:5000/health >/dev/null 2>&1; then
+              echo "API healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "API did not become healthy in time" >&2
+          if docker compose version >/dev/null 2>&1; then
+            docker compose -f docker-compose.yml logs --no-color || true
+          else
+            docker-compose -f docker-compose.yml logs --no-color || true
+          fi
+          exit 1
+
+      - name: Wait for Visualiser health (best-effort)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8090/health >/dev/null 2>&1; then
+              echo "Visualiser healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "Visualiser health endpoint not detected (continuing)"
+          exit 0
+
+      - name: Smoke tests
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fsS http://localhost:5000/docs | head -n1 || true
+          curl -fsS -X POST http://localhost:5000/api/survey/register \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"ciuser","password":"test123456"}' || true
+
+      - name: Archive MongoDB (mongodump)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # Find the Mongo container id via compose
+          if docker compose version >/dev/null 2>&1; then
+            CID=$(docker compose -f docker-compose.yml ps -q mongo)
+          else
+            CID=$(docker-compose -f docker-compose.yml ps -q mongo)
+          fi
+          if [ -z "$CID" ]; then
+            echo "Mongo container not found" >&2; exit 1
+          fi
+          # Use tools inside the container to create an archive to stdout
+          docker exec "$CID" sh -lc 'mongodump --archive --gzip --db=survey_db' > mongo-survey_db.archive.gz
+
+      - name: Upload Mongo dump artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongo-survey_db-dump
+          path: mongo-survey_db.archive.gz
+          if-no-files-found: error
+
+      - name: Tear down
+        if: always()
+        run: |
+          if docker compose version >/dev/null 2>&1; then
+            docker compose -f docker-compose.yml down -v
+          else
+            docker-compose -f docker-compose.yml down -v
+          fi

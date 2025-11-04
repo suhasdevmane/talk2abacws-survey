@@ -1,0 +1,951 @@
+openapi: 3.0.3
+info:
+  version: 1.3.0
+  title: Abacws Data Visualiser
+  description: >
+    API for the storage and query of IoT data for the Cardiff University Comptuer Science building (Abacws).
+  license:
+    name: MIT
+
+tags:
+  - name: Advanced Query
+    description: >
+      Advanced query endpoints for querying the entire dataset
+
+  - name: Devices
+    description: >
+      Endpoints relating to device info
+
+  - name: Device Data
+    description: >
+      Endpoints relating to device data entry
+
+  - name: Device History
+    description: >
+      Endpoints relating to device historical data
+
+servers:
+  - url: ./
+    description: >
+      Relative url
+  # - url: https://abacws.ggrainger.uk/api
+  #   description: >
+  #     Production deployment
+  - url: http://localhost:5000/api
+    description: >
+      Local development server.
+
+paths:
+  /devices:
+    summary: Device listing endpoint
+
+    get:
+      summary: Get a list of all devices
+      description: >
+        # Device listing endpoint
+          Returns a list of all devices.
+      tags:
+        - Devices
+      responses:
+        "200":
+          description: >
+            ##### OK
+              List of all devices returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/devices"
+
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+    post:
+      summary: Create a new device
+      description: >
+        # Create device
+          Creates a new device with a name, floor, and world position.
+          The device name must be unique.
+      tags:
+        - Devices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/deviceCreate"
+            example:
+              name: viz_test_01
+              type: sensor
+              floor: 5
+              position:
+                x: 100
+                y: 70
+                z: -120
+      responses:
+        "201":
+          description: >
+            ##### Created
+              The device was created successfully and returned in the response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/device"
+        "400":
+          description: >
+            ##### Bad Request
+              The payload was invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "409":
+          description: >
+            ##### Conflict
+              A device with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+  /devices/{deviceName}:
+    summary: Get information about device
+    parameters:
+      - $ref: "#/components/parameters/deviceName"
+
+    get:
+      summary: Get basic info on a device
+      description: >
+        # Get information about device
+          Returns the basic information about a device.
+      tags:
+        - Devices
+      responses:
+        "200":
+          description: >
+            ##### OK
+              Device details returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/device"
+
+    patch:
+      summary: Update device properties
+      description: >
+        # Update device
+          Update one or more properties of a device. Supported fields: type, floor, position, pinned.
+      tags:
+        - Devices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                    floor:
+                      type: number
+                    position:
+                      $ref: "#/components/schemas/position"
+                    pinned:
+                      type: boolean
+            example:
+              position:
+                x: 120
+                y: 70
+                z: -100
+              pinned: true
+      responses:
+        "200":
+          description: >
+            ##### OK
+              Updated device returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/device"
+        "400":
+          description: >
+            ##### Bad Request
+              Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error"
+        "404":
+          $ref: "#/components/responses/deviceNotFound"
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+  /devices/{deviceName}/data:
+    summary: Data interaction endpoint
+    parameters:
+      - $ref: "#/components/parameters/deviceName"
+
+    get:
+      summary: Get current data for a device
+      description: >
+        # Data interaction endpoint
+          Get the last data entry for the given device
+      tags:
+        - Device Data
+      responses:
+        "200":
+          description: >
+            ##### OK
+              Device data returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/timestampedData"
+
+        "404":
+          $ref: "#/components/responses/deviceNotFound"
+
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+    put:
+      summary: Add data to the given device
+      description: >
+        # Data interaction endpoint
+          Adds data to the given device.
+          Data should be provided in JSON format using a PUT request.
+
+          A timestamp is added to the data automatically and is not required.
+
+          Units can optionally be provided by providing an object with a `value` and `units` field instead of just a value:
+
+        ## Without units
+            {
+              temperature: 20
+            }
+
+        ## With units
+            {
+              temperature: {
+                value: 20,
+                units: "C"
+              }
+            }
+      tags:
+        - Device Data
+      security: 
+          - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/data"
+            example:
+              temperature:
+                value: 21
+                units: °C
+      responses:
+        "202":
+          description: >
+            ##### OK
+              Data added
+
+        "404":
+          $ref: "#/components/responses/deviceNotFound"
+
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+        "403":
+          $ref: "#/components/responses/authFailure"
+
+  /devices/{deviceName}/history:
+    summary: Historical data endpoint
+    parameters:
+      - $ref: "#/components/parameters/deviceName"
+      - $ref: "#/components/parameters/fromTime"
+      - $ref: "#/components/parameters/toTime"
+
+    get:
+      summary: Get historical data
+      description: >
+        # Historical data endpoint
+          Get historical data for the specified device.
+          
+          Optionally, can provide a "from" or "to" parameter to constrain the timeframe for the request.
+      tags:
+        - Device History
+      responses:
+        "200":
+          description: >
+            ##### OK
+              Historical data returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/history"
+
+        "404":
+          $ref: "#/components/responses/deviceNotFound"
+
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+    delete:
+      summary: Clear historical data
+      description: >
+        # Clear historical data
+          Deletes all data for the given device
+      tags:
+        - Device History
+      security:
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: >
+            ##### OK
+              Data was clearned
+
+        "404":
+          $ref: "#/components/responses/deviceNotFound"
+
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+        "403":
+          $ref: "#/components/responses/authFailure"
+
+  # Advanced query endpoints
+  /query:
+    summary: Advanced query endpoint
+    parameters:
+      - $ref: "#/components/parameters/aQueryDeviceNames"
+      - $ref: "#/components/parameters/aQueryDeviceTypes"
+      - $ref: "#/components/parameters/aQueryDeviceFloors"
+
+    get:
+      summary: Advanced query endpoint for device info
+      description: >
+        # Advanced query endpoint
+          Get a filtered list of devices based on provided parameters
+      tags:
+        - Devices
+        - Advanced Query
+
+      responses:
+        "200":
+          $ref: "#/components/responses/aQueryOK"
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+  /query/data:
+    summary: Advanced query endpoint
+    parameters:
+      - $ref: "#/components/parameters/aQueryDeviceNames"
+      - $ref: "#/components/parameters/aQueryDeviceTypes"
+      - $ref: "#/components/parameters/aQueryDeviceFloors"
+      - $ref: "#/components/parameters/aQueryDeviceHasFields"
+
+    get:
+      summary: Advanced query endpoint for device data
+      description: >
+        # Advanced query endpoint
+          Get a filtered list of devices and their last data entry based on provided parameters.
+
+          NOTE: Devices with no data matching the query will not be returned.
+      tags:
+        - Device Data
+        - Advanced Query
+
+      responses:
+        "200":
+          $ref: "#/components/responses/aQueryOK"
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+  /query/history:
+    summary: Advanced query endpoint
+    parameters:
+      - $ref: "#/components/parameters/aQueryDeviceNames"
+      - $ref: "#/components/parameters/aQueryDeviceTypes"
+      - $ref: "#/components/parameters/aQueryDeviceFloors"
+      - $ref: "#/components/parameters/aQueryDeviceHasFields"
+      - $ref: "#/components/parameters/fromTime"
+      - $ref: "#/components/parameters/toTime"
+
+    get:
+      summary: Advanced query endpoint for device history
+      description: >
+        # Advanced query endpoint
+          Get a filtered list of devices and associated historical data based on the provided parameters
+
+          NOTE: Devices with no data matching the query will not be returned.
+      tags:
+        - Device History
+        - Advanced Query
+
+      responses:
+        "200":
+          $ref: "#/components/responses/aQueryOK"
+        "503":
+          $ref: "#/components/responses/databaseFailure"
+
+  # External Postgres time-series integration (experimental)
+  /datasources:
+    get:
+      summary: List data sources
+      description: List configured external Postgres data sources (currently single-cluster assumed)
+      tags: [ Time-Series (Experimental) ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/dataSource' }
+        "501": { $ref: '#/components/responses/databaseFailure' }
+    post:
+      summary: Create data source
+      description: Create a new data source (host/port/db/user/password/schema). Password write-only.
+      security: [ { apiKeyAuth: [] } ]
+      tags: [ Time-Series (Experimental) ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/dataSourceCreate' }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/dataSource' } } } }
+        "400": { description: Bad request }
+        "501": { $ref: '#/components/responses/databaseFailure' }
+
+  /datasources/{id}:
+    patch:
+      summary: Update data source
+      security: [ { apiKeyAuth: [] } ]
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/dataSourceUpdate' }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/dataSource' } } } }
+        "404": { description: Not found }
+    delete:
+      summary: Delete data source
+      security: [ { apiKeyAuth: [] } ]
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Deleted }
+        "400": { description: Has mappings / cannot delete }
+        "404": { description: Not found }
+
+  /datasources/{id}/tables:
+    get:
+      summary: List tables for data source
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { type: string } } } } }
+        "404": { description: Not found }
+
+  /datasources/{id}/columns:
+    get:
+      summary: List columns for table
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: table
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/tableColumn' } } } } }
+        "404": { description: Not found }
+
+  /mappings:
+    get:
+      summary: List device time-series mappings
+      tags: [ Time-Series (Experimental) ]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/deviceMapping' } } } } }
+    post:
+      summary: Create device mapping
+      security: [ { apiKeyAuth: [] } ]
+      tags: [ Time-Series (Experimental) ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/deviceMappingCreate' }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/deviceMapping' } } } }
+        "400": { description: Missing required fields }
+        "409": { description: Duplicate mapping }
+
+  /mappings/{id}:
+    patch:
+      summary: Update device mapping
+      security: [ { apiKeyAuth: [] } ]
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/deviceMappingUpdate' }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/deviceMapping' } } } }
+        "404": { description: Not found }
+    delete:
+      summary: Delete device mapping
+      security: [ { apiKeyAuth: [] } ]
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200": { description: Deleted }
+        "404": { description: Not found }
+
+  /mappings/device/{deviceName}/timeseries:
+    get:
+      summary: Fetch time series for device via mapping
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: deviceName
+          in: path
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          schema: { type: number, description: 'Epoch ms' }
+        - name: to
+          in: query
+          required: false
+          schema: { type: number, description: 'Epoch ms' }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/deviceTimeSeriesResponse' } } } }
+
+  /latest:
+    get:
+      summary: Batch latest mapped values for all devices
+      tags: [ Time-Series (Experimental) ]
+      parameters:
+        - name: lookbackDays
+          in: query
+          required: false
+          schema: { type: integer, default: 7, maximum: 30 }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/latestBatch' } } } }
+
+
+components:
+  responses:
+    deviceNotFound:
+      description: >
+        ##### Device not found
+          The requested device does not exist in the database.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/error"
+          example:
+            error: Device does not exist
+
+    databaseFailure:
+      description: >
+        ##### Unable to access database
+          The API was unable to read/write from the database.
+          This may mean that the database is unreachable or that the api lacks the permissions to read/write from/to it.
+          Check your logs for more information.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/error"
+          example:
+            error: Unable to access database
+
+    authFailure:
+      description: >
+        ##### Auth failure
+          The authorisation provided was insufficient for this endpoint.
+      content:
+        application/json:
+          schema:
+            "$ref": "#/components/schemas/error"
+          example:
+            error: You do not have permission to access this resource
+
+    # Advaned query responses
+    aQueryOK:
+      description: >
+        ##### OK
+          A list of the devices matching the provided parameters was returned.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/devices"
+
+
+  parameters:
+    deviceName:
+      in: path
+      name: deviceName
+      required: true
+      description: >
+        Name of the the device you wish to query
+      schema:
+        type: string
+        example: Room-0.01
+
+    fromTime:
+      in: query
+      name: from
+      required: false
+      description: >
+        Defines the start of a date range for history requests.
+          - If specified will only allow data points with a time larger than the provided value.
+          - Should be formatted in UNIX time.
+      schema:
+        type: number
+
+    toTime:
+      in: query
+      name: to
+      required: false
+      description: >
+        Defines the end of a date range for history requests.
+          - If specified will only allow data points with a time smaller than the provided value.
+          - Should be formatted in UNIX time.
+      schema:
+        type: number
+
+    # Advanced query parameters
+    aQueryDeviceNames:
+      name: name
+      in: query
+      required: false
+      description: >
+        The names of the devices we wish to query.
+          - Can be a single value, or a list of comma-delimited values
+      schema:
+        type: string
+        examples:
+          - room1
+          - room1,room2,room3
+
+    aQueryDeviceTypes:
+      name: type
+      in: query
+      required: false
+      description: >
+        Types of devices we wish to query.
+          - Can be a single value, or a list of comma-delimited values
+      schema:
+        type: string
+        examples:
+          - lecture
+          - lecture,office,meeting
+
+    aQueryDeviceFloors:
+      name: floor
+      in: query
+      required: false
+      description: >
+        Floors on which the devices we wish to query are
+          - Can be a single value, or a list of comma-delimited values
+      schema:
+        type: string
+        examples:
+          - 1
+          - 1,2,3
+
+    aQueryDeviceHasFields:
+      name: has
+      in: query
+      required: false
+      description: >
+        The fields we want the returned data to contain.
+          - Devices and data not containing these fields will not be returned.
+          - Can be a single value, or a list of comma-delimited values
+      schema:
+        type: string
+        examples:
+          - temperature
+          - temperature,humidity,light level
+
+
+  schemas:
+    device:
+      type: object
+      description: >
+        A device represents a real world IoT device with:
+            A known location
+            A unique name which can be used to identify it.
+      required:
+        - name
+        - type
+        - position
+      properties:
+        name:
+          type: string
+          description: >
+            Unique name of the device
+          examples:
+            - Room-0.01
+        type:
+          type: string
+          description: >
+            The type of device
+          examples:
+            - lecture
+            - office
+        floor:
+          type: number
+          description: >
+            The floor on which the device is located.
+        position:
+          $ref: "#/components/schemas/position"
+        pinned:
+          type: boolean
+          description: Whether the device is pinned (locked) in the UI
+        data:
+          $ref: "#/components/schemas/timestampedData"
+        history:
+          $ref: "#/components/schemas/history"
+
+    devices:
+      description: >
+        A list of devices
+      type: array
+      items:
+        $ref: "#/components/schemas/device"
+
+    position:
+      type: object
+      description: >
+        The absolute position of a device in the world
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+
+    timestamp:
+      type: integer
+      description: UNIX timestamp
+      examples:
+        - 1647527656
+
+    data:
+      type: object
+      description: >
+        Datapoint provided by a device, can have any number of fields.
+        For example, a device could provide a temperature value.
+      examples:
+        - temperature:
+            value: 20
+            units: °C
+          boolean value:
+            value: true
+
+    timestampedData:
+      type: object
+      description: >
+        Datapoint provided by a device, can have any number of fields.
+        Will always include a timestamp field indiciating when this data was provided in UNIX time.
+      allOf:
+        - $ref: "#/components/schemas/data"
+        - type: object
+          properties:
+            timestamp:
+              $ref: "#/components/schemas/timestamp"
+
+          examples:
+            - timestamp: 1647527656
+              temperature:
+                value: 20
+                units: °C
+              boolean value:
+                value: true
+
+    history:
+      type: array
+      minItems: 0
+      description: >
+        Array of historical, timestamped data.
+      items:
+        $ref: "#/components/schemas/timestampedData"
+
+    error:
+      type: object
+      description: >
+        An error of some description was encountered by the API.
+        A summary of this error will be provided as part of the error field.
+      properties:
+        error:
+          type: string
+          examples:
+            - Not Found
+            - Could not read/write from database
+
+    # Payload for creating a device
+    deviceCreate:
+      type: object
+      required:
+        - name
+        - floor
+        - position
+      properties:
+        name:
+          type: string
+          description: Unique device name (must be unique)
+        type:
+          type: string
+          description: Optional device type
+        floor:
+          type: number
+          description: Floor on which the device is located
+        position:
+          $ref: "#/components/schemas/position"
+        pinned:
+          type: boolean
+          description: Optional pinned state (defaults to false)
+
+        # Experimental time-series integration schemas
+        dataSource:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            host: { type: string }
+            port: { type: integer }
+            database: { type: string }
+            user: { type: string }
+            schema: { type: string }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+        dataSourceCreate:
+          type: object
+          required: [ host, port, database, user ]
+          properties:
+            name: { type: string }
+            host: { type: string }
+            port: { type: integer, default: 5432 }
+            database: { type: string }
+            user: { type: string }
+            password: { type: string }
+            schema: { type: string, default: public }
+        dataSourceUpdate:
+          type: object
+          properties:
+            name: { type: string }
+            password: { type: string }
+            schema: { type: string }
+        tableColumn:
+          type: object
+          properties:
+            column_name: { type: string }
+            data_type: { type: string }
+        deviceMapping:
+          type: object
+          properties:
+            id: { type: integer }
+            device_name: { type: string }
+            data_source_id: { type: integer }
+            table_name: { type: string }
+            device_id_column: { type: string }
+            device_identifier_value: { type: string }
+            timestamp_column: { type: string }
+            value_columns: { type: array, items: { type: string } }
+            primary_value_column: { type: string, nullable: true }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+        deviceMappingCreate:
+          allOf:
+            - $ref: '#/components/schemas/deviceMapping'
+          required: [ device_name, data_source_id, table_name, device_id_column, device_identifier_value, timestamp_column, value_columns ]
+        deviceMappingUpdate:
+          type: object
+          properties:
+            table_name: { type: string }
+            device_id_column: { type: string }
+            device_identifier_value: { type: string }
+            timestamp_column: { type: string }
+            value_columns: { type: array, items: { type: string } }
+            primary_value_column: { type: string }
+        deviceTimeSeriesPoint:
+          type: object
+          description: Row of time-series values; dynamic keys for value columns plus ts
+          properties:
+            ts: { type: number, description: 'Epoch ms' }
+          additionalProperties: true
+        deviceTimeSeriesResponse:
+          type: object
+          properties:
+            mapping: { $ref: '#/components/schemas/deviceMapping' }
+            series: { type: array, items: { $ref: '#/components/schemas/deviceTimeSeriesPoint' } }
+        latestBatch:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              timestamp: { type: number }
+              values: { type: object, additionalProperties: true }
+              primary: { type: number }
+              mappingId: { type: integer }
+              range_min: { type: number, nullable: true }
+              range_max: { type: number, nullable: true }
+              color_min: { type: string, nullable: true, description: 'Hex color (#rrggbb)' }
+              color_max: { type: string, nullable: true, description: 'Hex color (#rrggbb)' }
+
+
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+
+# NOTE: Experimental external time-series endpoints (datasources, mappings, latest)
+# are implemented in the server but not fully documented inline here to avoid
+# inflating this already large spec. A follow-up refinement can merge them properly.

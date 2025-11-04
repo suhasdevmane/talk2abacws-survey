@@ -1,0 +1,38 @@
+# General
+.DS_Store
+*.log
+npm-debug.log*
+yarn-error.log*
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.*
+
+# Node
+node_modules/
+**/node_modules/
+
+# Builds / dist
+build/
+dist/
+**/build/
+**/dist/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+
+# Local tooling
+.vscode/
+.idea/
+
+# Generated outputs
+api/scripts/out/
+telemetry/.venv/
+
+# Mongo data — excluded from Git to avoid 100MB file limits and binary churn
+# The CI workflow will upload a compressed mongodump artifact on each push.
+mongo/

@@ -1,0 +1,36 @@
+# Heroku Container Deployment
+# This tells Heroku to use Docker containers
+setup:
+  addons:
+    - plan: heroku-postgresql:essential-0
+      as: DATABASE
+  config:
+    NODE_ENV: production
+    JWT_SECRET: ${JWT_SECRET}
+    SESSION_SECRET: ${SESSION_SECRET}
+    API_KEY: ${API_KEY}
+
+build:
+  docker:
+    api: api/Dockerfile
+    visualiser: visualiser/Dockerfile
+    web: rasa-frontend/Dockerfile
+
+run:
+  api: 
+    image: api
+    command:
+      - node
+      - src/app.js
+  visualiser:
+    image: visualiser
+  web:
+    image: web
+    command:
+      - npm
+      - start
+
+release:
+  image: api
+  command:
+    - echo "Release phase - database migrations would go here"

@@ -1,0 +1,28 @@
+{
+  "name": "talk2abacws-survey",
+  "version": "1.0.0",
+  "description": "Survey platform with device visualization and telemetry",
+  "main": "api/src/app.js",
+  "engines": {
+    "node": "18.x",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "start": "cd api && npm install --production && node src/app.js",
+    "heroku-postbuild": "cd api && npm install --production",
+    "dev": "docker-compose up --build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "survey",
+    "iot",
+    "visualization",
+    "mongodb"
+  ],
+  "author": "suhasdevmane",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suhasdevmane/talk2abacws-survey.git"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "Talk2ABACWS Survey Platform",
+  "description": "A survey platform with JWT authentication, device visualization, and telemetry",
+  "repository": "https://github.com/suhasdevmane/talk2abacws-survey",
+  "keywords": ["nodejs", "mongodb", "survey", "visualization", "iot"],
+  "stack": "container",
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "buildpacks": [],
+  "addons": [
+    {
+      "plan": "heroku-postgresql:essential-0",
+      "as": "DATABASE"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    },
+    "JWT_SECRET": {
+      "description": "Secret key for JWT token generation",
+      "generator": "secret"
+    },
+    "SESSION_SECRET": {
+      "description": "Secret key for session management",
+      "generator": "secret"
+    },
+    "API_KEY": {
+      "description": "API key for authentication",
+      "generator": "secret"
+    },
+    "MONGO_URL": {
+      "description": "MongoDB connection string (use MongoDB Atlas or similar)",
+      "required": true
+    }
+  },
+  "scripts": {
+    "postdeploy": "echo 'Deployment complete. Configure MongoDB Atlas connection.'"
+  }
+}

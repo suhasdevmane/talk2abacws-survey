@@ -2,7 +2,7 @@ name: Publish Docker images to GHCR
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
     tags: [ 'v*.*.*' ]
 
 permissions:
@@ -78,6 +78,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=talk2abacws-${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=talk2abacws-${{ matrix.name }}
+          provenance: false
+          sbom: false
 
       - name: Export SBOM (Syft) and upload
         uses: anchore/sbom-action@v0

@@ -1,0 +1,93 @@
+name: Publish Docker images to GHCR
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  build-and-push:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            context: ./api
+            dockerfile: ./api/Dockerfile
+          - name: visualiser
+            context: ./visualiser
+            dockerfile: ./visualiser/Dockerfile
+          - name: rasa-frontend
+            context: ./rasa-frontend
+            dockerfile: ./rasa-frontend/Dockerfile
+          - name: sender
+            context: ./telemetry
+            dockerfile: ./telemetry/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/talk2abacws-${{ matrix.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=talk2abacws-${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=talk2abacws-${{ matrix.name }}
+
+      - name: Export SBOM (Syft) and upload
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/talk2abacws-${{ matrix.name }}@${{ steps.build.outputs.digest }}
+          artifact-name: sbom-${{ matrix.name }}
+
+      - name: Summarize image
+        run: |
+          echo "Published: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/talk2abacws-${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "Tags:" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | sed 's/ /\n/g' >> $GITHUB_STEP_SUMMARY
+          echo "Digest: ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY

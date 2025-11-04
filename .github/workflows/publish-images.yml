@@ -32,7 +32,7 @@ jobs:
             context: ./rasa-frontend
             dockerfile: ./rasa-frontend/Dockerfile
           - name: sender
-            context: ./telemetry
+            context: .
             dockerfile: ./telemetry/Dockerfile
 
     steps:

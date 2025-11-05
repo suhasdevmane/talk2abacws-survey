@@ -8,7 +8,7 @@ import { FaPaperPlane } from 'react-icons/fa';
 import db from '../db';
 import '../App.css'; // Ensure CSS is imported
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE = process.env.REACT_APP_API_URL || '/api';
 const SURVEY_ENDPOINT = `${API_BASE}/survey/question`;
 // Removed suggestions endpoint as per updated UI requirements
 

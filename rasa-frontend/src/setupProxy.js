@@ -1,8 +1,22 @@
-// Proxy /visualiser requests from the React dev server to the Visualiser container
-// This keeps the iframe on the same origin (frontend), avoiding ngrok's browser warning page.
+// Proxy requests from the React dev server to backend services
+// This keeps everything same-origin, so only ONE ngrok tunnel (frontend) is needed.
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function (app) {
+  // Proxy /api requests to the API container
+  app.use(
+    '/api',
+    createProxyMiddleware({
+      target: 'http://abacws-api:5000',
+      changeOrigin: true,
+      ws: true,
+      onProxyReq: (proxyReq) => {
+        proxyReq.setHeader('ngrok-skip-browser-warning', 'true');
+      },
+    })
+  );
+
+  // Proxy /visualiser requests to the Visualiser container
   app.use(
     '/visualiser',
     createProxyMiddleware({
@@ -13,7 +27,6 @@ module.exports = function (app) {
         '^/visualiser': '/',
       },
       onProxyReq: (proxyReq) => {
-        // Helpful header if we ever point to an ngrok URL instead of container DNS
         proxyReq.setHeader('ngrok-skip-browser-warning', 'true');
       },
     })

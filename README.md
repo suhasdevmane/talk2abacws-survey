@@ -493,6 +493,93 @@ With Docker:
   - Visualiser: GET /health (NGINX static 200)
 
 ---
+## Running with Docker commands (without docker-compose)
+
+**Prerequisites**: Run these commands from the project root: `C:\Users\suhas\Documents\GitHub\User Survey Abacws`
+
+```pwsh
+# 1. Create network (required for inter-container communication)
+docker network create survey-network
+
+# 2. Create named volume for MongoDB (persistent storage)
+docker volume create mongo-data
+
+# 3. Start MongoDB with named volume
+docker run -d --name abacws-mongo --network survey-network -p 27017:27017 -v mongo-data:/data/db --restart always mongo
+
+# 4. Build and run API (depends on mongo)
+docker build -t abacws-api-img ./api
+docker run -d --name abacws-api --network survey-network --hostname apihost -p 5000:5000 -e API_PORT=5000 -e MONGO_URL=mongodb://abacws-mongo:27017 -e JWT_SECRET=change-this-jwt-secret-in-production-use-strong-random-string -e SESSION_SECRET=change-this-secret-in-production -e API_KEY=V3rySecur3Pas3word -v "${PWD}/api/src/api/data:/api/src/api/data" --restart always abacws-api-img
+
+# 5. Build and run Visualiser (depends on api)
+docker build -t abacws-visualiser-img ./visualiser
+docker run -d --name abacws-visualiser --network survey-network --hostname visualiserhost -p 8090:80 -e WEB_PORT=80 -e API_HOST=abacws-api:5000 --restart always abacws-visualiser-img
+
+# 6. Build and run Rasa Frontend (depends on api)
+docker build -t rasa-frontend-img ./rasa-frontend
+docker run -d --name rasa-frontend-bldg1 --network survey-network --hostname rasa-frontend-host-bldg1 -p 3000:3000 -e NODE_ENV=development -e REACT_APP_API_URL=http://localhost:5000/api -e REACT_APP_VISUALIZER_URL=http://localhost:8090 -v "${PWD}/rasa-frontend:/app" -v /app/node_modules --restart unless-stopped rasa-frontend-img npm start
+
+# 7. Build and run Sender/Telemetry service (depends on api and visualiser)
+docker build -t abacws-sender-img -f telemetry/Dockerfile .
+docker run -d --name abacws-sender --network survey-network -p 8088:8088 -e API_BASE=http://abacws-api:5000/api -e INTERVAL_SECONDS=10 -e API_HEALTH=http://abacws-api:5000/health -e VIS_HEALTH=http://abacws-visualiser:80/health --restart always abacws-sender-img
+
+# 8. Expose Frontend via ngrok (connects to container on survey-network)
+# Uses reserved domain (requires paid plan), US region, connects directly to frontend container
+
+docker run -d -it --name abacws-survey-ngrok --network survey-network -e NGROK_AUTHTOKEN=351mX4l1QmwIH9QNq3TatjyErTf_3os4QyqSDSX614JkForyL -e NGROK_REGION=Global -p 4046:4040 ngrok/ngrok:latest http rasa-frontend-bldg1:3000 --domain=wimpishly-premonarchical-keyla.ngrok-free.dev
+
+
+extra domain-
+353dwLAqYq3fDf4gvmEzVzoM1gR_22wwdveXaYWMhRduTnbWA
+swayable-katia-nondevelopmentally.ngrok-free.dev
+# View ngrok logs and get public URL
+docker logs -f abacws-ngrok
+
+# Alternative: Expose via ngrok without custom domain (free tier, auto-generated URL)
+# docker run -d --name abacws-ngrok --network survey-network -e NGROK_AUTHTOKEN=351mX4l1QmwIH9QNq3TatjyErTf_3os4QyqSDSX614JkForyL --restart unless-stopped ngrok/ngrok:latest http --region=us rasa-frontend-bldg1:3000
+
+# Public URLs:
+# - Reserved domain: https://wimpishly-premonarchical-keyla.ngrok-free.dev
+# - TinyURL redirect: https://tinyurl.com/talk2abacws-survey
+```
+
+**To restore MongoDB from local mongo/ folder** (if you have existing data):
+```pwsh
+# Stop mongo container
+docker stop abacws-mongo
+
+# Copy local mongo/ files into the named volume
+docker run --rm -v mongo-data:/data/db -v "${PWD}/mongo:/backup" mongo cp -r /backup/. /data/db/
+
+# Start mongo again
+docker start abacws-mongo
+```
+
+**Verify all services are running**:
+```pwsh
+docker ps --filter "name=abacws-"
+```
+
+**View logs**:
+```pwsh
+docker logs -f abacws-api         # API logs
+docker logs -f abacws-mongo       # MongoDB logs
+docker logs -f abacws-visualiser  # Visualiser logs
+docker logs -f rasa-frontend-bldg1  # Frontend logs
+docker logs -f abacws-sender      # Sender logs
+```
+
+**Stop and remove all containers**:
+```pwsh
+docker stop abacws-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws-sender abacws-ngrok
+docker rm abacws-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws-sender abacws-ngrok
+```
+
+**Remove network and volume** (WARNING: deletes all MongoDB data):
+```pwsh
+docker network rm survey-network
+docker volume rm mongo-data
+```
 
 ## Contributing
 

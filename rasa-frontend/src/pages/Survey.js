@@ -4,7 +4,8 @@ import TopNav from '../components/TopNav';
 import '../components/Home.css';
 
 export default function Survey() {
-  const visualizerUrl = process.env.REACT_APP_VISUALIZER_URL || 'http://localhost:8090';
+  // Prefer same-origin path proxied by the dev server to avoid ngrok iframe warnings
+  const visualizerUrl = process.env.REACT_APP_VISUALIZER_URL || '/visualiser';
   
   return (
     <div className="home-body" style={{ height: '100vh', overflow: 'hidden' }}>

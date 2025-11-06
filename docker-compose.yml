@@ -76,10 +76,11 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://localhost:5000/api
-      - REACT_APP_VISUALIZER_URL=http://localhost:8090
+      - REACT_APP_API_URL=/api
+      - REACT_APP_VISUALIZER_URL=/visualiser
     depends_on:
       - api
+      - visualiser
     container_name: rasa-frontend-bldg1
     hostname: rasa-frontend-host-bldg1
     restart: unless-stopped
@@ -106,14 +107,15 @@ services:
     networks:
       - survey-network
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8088/health", "|", "grep", "ok"]
+      test: ["CMD", "sh", "-lc", "wget -qO- http://localhost:8088/health | grep -q ok"]
       interval: 30s
       timeout: 5s
       retries: 5
 
 networks:
   survey-network:
-    external: true
+    name: survey-network
+    driver: bridge
 
 volumes:
   mongo-data:

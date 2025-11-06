@@ -5,7 +5,7 @@ npm-debug.log*
 yarn-error.log*
 *.tmp
 *.swp
-
+.reserverd_ngrok_domains
 # Environment
 .env
 .env.*

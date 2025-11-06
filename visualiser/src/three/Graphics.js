@@ -240,14 +240,14 @@ export default class Graphics {
     light.position.set(0, 100, 0);
     this.scene.add(ambientLight, light);
     try {
-      const res = await fetch('/assets/manifest.json');
+      const res = await fetch('./assets/manifest.json');
       if (res.ok) {
         const manifest = await res.json();
         if (manifest && Array.isArray(manifest.layers)) LAYERS = manifest.layers;
       }
     } catch {}
     try {
-      const devices = (await apiFetch("/api/devices")).body;
+      const devices = (await apiFetch("./api/devices")).body;
       this.setDevices(devices);
     } catch {}
     // Kick off periodic latest mapping poll for color scaling
@@ -265,7 +265,7 @@ export default class Graphics {
     this.showProgressOverlay();
     const loader = new GLTFLoader();
     const tasks = LAYERS.map(fileName => (async () => {
-      const url = `/assets/${fileName}`;
+      const url = `./assets/${fileName}`;
       try {
         const layer = await loader.loadAsync(url);
         this.scene.add(layer.scene);
@@ -329,12 +329,12 @@ export default class Graphics {
     } catch (_) { /* ignore overlay failures */ }
   }
 
-  // Poll /api/latest periodically and update device colors along a gradient
+  // Poll ./api/latest periodically and update device colors along a gradient
   startLatestPolling() {
     const intervalMs = 15000;
     const fetchLatest = async () => {
       try {
-        const res = await apiFetch('/api/latest');
+        const res = await apiFetch('./api/latest');
         if(!res.ok) return;
         const data = res.body || {};
         this.applyLatestColoring(data);
@@ -673,7 +673,7 @@ export default class Graphics {
     const name = mesh.userData.name;
     const nextPinned = !mesh.userData.pinned;
     try {
-      const res = await apiFetch(`/api/devices/${encodeURIComponent(name)}`, 'PATCH', { pinned: nextPinned });
+      const res = await apiFetch(`./api/devices/${encodeURIComponent(name)}`, 'PATCH', { pinned: nextPinned });
       if (!res.ok) {
         const msg = res.body?.error || 'Failed to update pin state';
         // eslint-disable-next-line no-alert
@@ -1002,7 +1002,7 @@ export default class Graphics {
     const name = mesh.userData?.name;
     if (!name) return;
     try {
-      const res = await apiFetch(`/api/devices/${encodeURIComponent(name)}`, 'PATCH', {
+      const res = await apiFetch(`./api/devices/${encodeURIComponent(name)}`, 'PATCH', {
         position: { x: newPos.x, y: newPos.y, z: newPos.z },
       });
       if (!res.ok) {
@@ -1031,7 +1031,7 @@ export default class Graphics {
     const name = obj.userData?.name;
     if (!name) return;
     try {
-      const res = await apiFetch(`/api/devices/${encodeURIComponent(name)}`, 'PATCH', {
+      const res = await apiFetch(`./api/devices/${encodeURIComponent(name)}`, 'PATCH', {
         position: { x: Math.round(newPos.x), y: Math.round(newPos.y), z: Math.round(newPos.z) },
       });
       if (!res.ok) {
@@ -1321,7 +1321,7 @@ export default class Graphics {
     this._saveTimer = setTimeout(async () => {
       const pos = obj.position;
       try {
-        const res = await apiFetch(`/api/devices/${encodeURIComponent(obj.userData.name)}`, 'PATCH', {
+        const res = await apiFetch(`./api/devices/${encodeURIComponent(obj.userData.name)}`, 'PATCH', {
           position: { x: Math.round(pos.x), y: Math.round(pos.y), z: Math.round(pos.z) },
         });
         if (res.ok) obj.userData.position = { x: pos.x, y: pos.y, z: pos.z };

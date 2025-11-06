@@ -36,7 +36,22 @@ api.use(cors({
 }));
 
 // Api will only respond to JSON
-api.use(express.json());// Health now handled at top-level app (/health & /health/db). Keep optional legacy route.
+api.use(express.json());
+
+// Helper to extract JWT from cookie
+const getAuthenticatedUser = (req) => {
+    try {
+        const token = req.cookies?.authToken;
+        if (!token) return null;
+        const jwt = require('jsonwebtoken');
+        const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-change-in-production-use-strong-random-string';
+        return jwt.verify(token, JWT_SECRET);
+    } catch {
+        return null;
+    }
+};
+
+// Health now handled at top-level app (/health & /health/db). Keep optional legacy route.
 api.get('/health', (_req, res) => res.status(200).json({ status: 'ok', note: 'See top-level /health for db status' }));
 
 // Register routes
@@ -51,6 +66,73 @@ api.use("/latest", latest);
 api.use('/rules', rules);
 api.use('/stream', stream);
 api.use('/debug', debug);
+
+// Chat history endpoints (mounted at /api level for frontend compatibility)
+api.get('/get_history', async (req, res) => {
+    try {
+        const user = getAuthenticatedUser(req);
+        if (!user) {
+            return res.status(401).json({ error: 'Authentication required', messages: [] });
+        }
+
+        const { MongoClient } = require('mongodb');
+        const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:27017';
+        const client = new MongoClient(MONGODB_URI);
+        await client.connect();
+        const db = client.db('survey_db');
+        const historyCollection = db.collection('chat_history');
+        
+        const history = await historyCollection.findOne({ username: user.username });
+        await client.close();
+
+        if (history && history.messages) {
+            res.json({ messages: history.messages });
+        } else {
+            res.json({ messages: [] });
+        }
+    } catch (error) {
+        console.error('Get history error:', error);
+        res.status(500).json({ error: 'Failed to retrieve chat history', messages: [] });
+    }
+});
+
+api.post('/save_history', async (req, res) => {
+    try {
+        const user = getAuthenticatedUser(req);
+        if (!user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const { messages } = req.body;
+        if (!Array.isArray(messages)) {
+            return res.status(400).json({ error: 'Messages must be an array' });
+        }
+
+        const { MongoClient } = require('mongodb');
+        const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:27017';
+        const client = new MongoClient(MONGODB_URI);
+        await client.connect();
+        const db = client.db('survey_db');
+        const historyCollection = db.collection('chat_history');
+
+        await historyCollection.updateOne(
+            { username: user.username },
+            { 
+                $set: { 
+                    messages: messages,
+                    lastUpdated: new Date()
+                } 
+            },
+            { upsert: true }
+        );
+        await client.close();
+
+        res.json({ success: true, message: 'Chat history saved' });
+    } catch (error) {
+        console.error('Save history error:', error);
+        res.status(500).json({ error: 'Failed to save chat history' });
+    }
+});
 
 // Register error handlers
 api.use(mongodbLogErrors);

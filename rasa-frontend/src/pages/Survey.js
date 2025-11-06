@@ -5,7 +5,8 @@ import '../components/Home.css';
 
 export default function Survey() {
   // Prefer same-origin path proxied by the dev server to avoid ngrok iframe warnings
-  const visualizerUrl = process.env.REACT_APP_VISUALIZER_URL || '/visualiser';
+  const rawVisualizerUrl = process.env.REACT_APP_VISUALIZER_URL || '/visualiser';
+  const visualizerUrl = rawVisualizerUrl.endsWith('/') ? rawVisualizerUrl : `${rawVisualizerUrl}/`;
   
   return (
     <div className="home-body" style={{ height: '100vh', overflow: 'hidden' }}>
@@ -36,6 +37,7 @@ export default function Survey() {
           <iframe
             src={visualizerUrl}
             title="3D Building Visualizer"
+            allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             style={{
               width: '100%',
               height: '100%',

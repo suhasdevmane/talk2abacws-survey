@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 // MongoDB connection
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://mongo:27017';
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://mongo:27017';
 const DB_NAME = 'survey_db';
 
 // JWT Secret - In production, use environment variable
@@ -18,11 +18,19 @@ let client;
 
 // Initialize MongoDB connection on first request
 const connectDB = async () => {
-    if (!client) {
-        client = new MongoClient(MONGO_URL);
-        await client.connect();
-        db = client.db(DB_NAME);
-        console.log('Connected to MongoDB for survey service');
+    if (!client || !db) {
+        try {
+            client = new MongoClient(MONGODB_URI);
+            await client.connect();
+            db = client.db(DB_NAME);
+            console.log('Connected to MongoDB for survey service');
+        } catch (error) {
+            console.error('MongoDB connection error for survey:', error.message);
+            // Reset client so we retry on next request
+            client = null;
+            db = null;
+            throw error;
+        }
     }
     return db;
 };
@@ -406,6 +414,56 @@ router.get('/admin/stats', async (req, res) => {
     } catch (error) {
         console.error('Admin stats error:', error);
         res.status(500).json({ error: 'Failed to retrieve statistics' });
+    }
+});
+
+// Get chat history for authenticated user
+router.get('/get_history', authenticateToken, async (req, res) => {
+    try {
+        const db = await connectDB();
+        const historyCollection = db.collection('chat_history');
+        
+        const history = await historyCollection.findOne({ 
+            username: req.user.username 
+        });
+
+        if (history && history.messages) {
+            res.json({ messages: history.messages });
+        } else {
+            res.json({ messages: [] });
+        }
+    } catch (error) {
+        console.error('Get history error:', error);
+        res.status(500).json({ error: 'Failed to retrieve chat history', messages: [] });
+    }
+});
+
+// Save chat history for authenticated user
+router.post('/save_history', authenticateToken, async (req, res) => {
+    try {
+        const db = await connectDB();
+        const historyCollection = db.collection('chat_history');
+        const { messages } = req.body;
+
+        if (!Array.isArray(messages)) {
+            return res.status(400).json({ error: 'Messages must be an array' });
+        }
+
+        await historyCollection.updateOne(
+            { username: req.user.username },
+            { 
+                $set: { 
+                    messages: messages,
+                    lastUpdated: new Date()
+                } 
+            },
+            { upsert: true }
+        );
+
+        res.json({ success: true, message: 'Chat history saved' });
+    } catch (error) {
+        console.error('Save history error:', error);
+        res.status(500).json({ error: 'Failed to save chat history' });
     }
 });
 

@@ -46,7 +46,7 @@ docker run -d --name abacws-survey-mongo --network survey-network -p 27017:27017
 docker build -t abacws-api-img ./api
 docker run -d --name abacws-api --network survey-network --hostname apihost -p 5000:5000 `
   -e API_PORT=5000 `
-  -e MONGO_URL=mongodb://abacws-survey-mongo:27017 `
+  -e MONGODB_URI=mongodb://abacws-survey-mongo:27017/abacws `
   -e JWT_SECRET=change-this-jwt-secret-in-production-use-strong-random-string `
   -e SESSION_SECRET=change-this-secret-in-production `
   -e API_KEY=V3rySecur3Pas3word `

@@ -16,6 +16,15 @@ module.exports = function (app) {
     })
   );
 
+  // Ensure /visualiser (no trailing slash) redirects to /visualiser/ so relative assets resolve
+  app.use('/visualiser', (req, res, next) => {
+    if (req.originalUrl === '/visualiser') {
+      res.redirect(307, '/visualiser/');
+      return;
+    }
+    next();
+  });
+
   // Proxy /visualiser requests to the Visualiser container
   app.use(
     '/visualiser',

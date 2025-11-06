@@ -493,6 +493,279 @@ With Docker:
   - Visualiser: GET /health (NGINX static 200)
 
 ---
+  ## Start From Scratch: Build and Run Everything
+
+  Use these commands to cleanly rebuild all images from source, run the stack, verify locally, and optionally expose via ngrok. Commands assume you run them from the repo root on Linux/macOS shell (sh/bash): `/home/suhas/Survey`.
+
+  Notes:
+  - Replace placeholders like <YOUR_JWT_SECRET> and <YOUR_NGROK_AUTHTOKEN>.
+  - Always visit the visualiser via a trailing slash: `/visualiser/` so its relative assets resolve correctly.
+
+  ### 0) Optional: Clean previous containers
+
+  ```sh
+  # Stop containers if present (ignore errors)
+  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+
+  # Remove containers (ignore errors)
+  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+  ```
+
+  ### 1) Create Docker network and Mongo volume
+
+  ```sh
+  # Create app network if it does not exist
+  docker network inspect survey-network >/dev/null 2>&1 || docker network create survey-network
+
+  # Create Mongo volume if it does not exist
+  docker volume ls | grep -q "mongo-data" || docker volume create mongo-data
+  ```
+
+  ### 2) Start MongoDB
+
+  ```sh
+  docker run -d --name abacws-survey-mongo \
+    --network survey-network \
+    -p 27017:27017 \
+    -v mongo-data:/data/db \
+    mongo:4.4
+  ```
+
+  Verify:
+  ```sh
+  docker ps | grep abacws-survey-mongo
+  ```
+
+  ### 3) Build images (API, Visualiser, Frontend)
+
+  ```sh
+  # Build API
+  docker build -t abacws-api-img ./api
+
+  # Build Visualiser
+  docker build -t abacws-visualiser-img ./visualiser
+
+  # Build Frontend
+  docker build -t rasa-frontend-img ./rasa-frontend
+  ```
+
+  To force clean builds, add `--no-cache` to each build command above.
+
+  ### 4) Run the API
+
+  ```sh
+  docker run -d --name abacws-api \
+    --network survey-network \
+    -p 5000:5000 \
+    -e MONGODB_URI="mongodb://abacws-survey-mongo:27017/abacws-survey" \
+    -e JWT_SECRET="<YOUR_JWT_SECRET>" \
+    abacws-api-img
+  ```
+
+  Verify:
+  ```sh
+  curl -s http://localhost:5000/api/health
+  ```
+
+  ### 5) Run the Visualiser
+
+  ```sh
+  docker run -d --name abacws-visualiser \
+    --network survey-network \
+    -p 8090:80 \
+    -e WEB_PORT=80 \
+    -e API_HOST=http://abacws-api:5000 \
+    abacws-visualiser-img
+  ```
+
+  Verify:
+  ```sh
+  # HTML shell
+  curl -I http://localhost:8090/
+  # Assets
+  curl -I http://localhost:8090/static/js/main.931f4780.js
+  curl -I http://localhost:8090/assets/manifest.json
+  ```
+
+  ### 6) Run the Frontend (proxies /api and /visualiser)
+
+  ```sh
+  docker run -d --name rasa-frontend-bldg1 \
+    --network survey-network \
+    -p 3000:3000 \
+    -e PORT=3000 \
+    rasa-frontend-img
+  ```
+
+  Verify:
+  ```sh
+  # Survey page
+  curl -I http://localhost:3000/survey
+  # Visualiser through the frontend proxy (note trailing slash)
+  curl -I http://localhost:3000/visualiser/
+  # Visualiser assets via proxy
+  curl -I http://localhost:3000/visualiser/static/js/main.931f4780.js
+  ```
+
+  Open in browser:
+  - http://localhost:3000 (Login/Register, then go to Survey)
+  - http://localhost:3000/visualiser/ (standalone visualiser)
+
+  ### 7) (Optional) Expose via ngrok
+
+  If you have a reserved ngrok domain:
+
+  ```sh
+  docker run -d --name abacws-survey-ngrok \
+    --network survey-network \
+    -p 4046:4040 \
+    -e NGROK_AUTHTOKEN=<YOUR_NGROK_AUTHTOKEN> \
+    ngrok/ngrok:latest http rasa-frontend-bldg1:3000 --domain=<YOUR_RESERVED_DOMAIN>.ngrok-free.dev
+  ```
+
+  Check the tunnel:
+  ```sh
+  curl -I https://<YOUR_RESERVED_DOMAIN>.ngrok-free.dev/visualiser/
+  ```
+
+  Without a reserved domain (auto-generated URL):
+  ```sh
+  docker run -d --name abacws-survey-ngrok \
+    --network survey-network \
+    -p 4046:4040 \
+    -e NGROK_AUTHTOKEN=<YOUR_NGROK_AUTHTOKEN> \
+    ngrok/ngrok:latest http rasa-frontend-bldg1:3000
+  # Open the ngrok inspector in your browser:
+  # http://localhost:4046
+  ```
+
+  ### 8) Troubleshooting quick checks
+
+  - Visualiser loads but is blank:
+    - Ensure you visit `/visualiser/` (with trailing slash) so relative assets resolve.
+    - Hard refresh the browser (Ctrl+Shift+R / Cmd+Shift+R).
+    - Check that CSS class `.model-container` is present in the visualiser build.
+  - Assets failing:
+    - Check `/visualiser/static/js/main.*.js` and `/visualiser/assets/manifest.json` return 200 via curl.
+  - API data not present:
+    - Check `http://localhost:5000/api/health` returns `{ "status": "ok" }`.
+  - iframe blocked:
+    - Everything is served same-origin via the frontend proxy; keep using `/visualiser/`.
+
+  ### 9) Stop & clean up
+
+  ```sh
+  # Stop
+  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-ngrok abacws-survey-mongo
+
+  # Remove
+  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-ngrok abacws-survey-mongo
+
+  # Optional: remove images
+  # docker rmi rasa-frontend-img abacws-visualiser-img abacws-api-img
+
+  # Optional: keep or remove Mongo data volume
+  # docker volume rm mongo-data
+  ```
+
+  ---
+
+  ## Helper Script: REBUILD_FROM_SCRATCH.sh
+
+  If you prefer a single command, copy this into a file named `REBUILD_FROM_SCRATCH.sh` and run with `sh REBUILD_FROM_SCRATCH.sh`.
+
+  ```sh
+  #!/bin/sh
+  # ============================================================================
+  # COMPLETE REBUILD FROM SCRATCH (Local + Optional ngrok)
+  # Run these commands one by one, or execute this script as-is.
+  # ============================================================================
+
+  set -e
+
+  # 0) Ensure network and volume
+  echo "[0/10] Ensuring network and volume exist"
+  docker network inspect survey-network >/dev/null 2>&1 || docker network create survey-network
+  (docker volume ls | grep -q "mongo-data") || docker volume create mongo-data
+
+  # 1) Stop containers (ignore failures)
+  echo "[1/10] Stopping containers (if any)"
+  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+
+  # 2) Remove containers (ignore failures)
+  echo "[2/10] Removing containers"
+  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+
+  # 3) Start MongoDB (persistent volume)
+  echo "[3/10] Starting MongoDB"
+  docker run -d --name abacws-survey-mongo \
+    --network survey-network \
+    -p 27017:27017 \
+    -v mongo-data:/data/db \
+    mongo:4.4
+
+  # 4) Build API (no cache)
+  echo "[4/10] Building API image (no cache)"
+  docker build --no-cache -t abacws-api-img ./api
+
+  # 5) Build Visualiser (no cache)
+  echo "[5/10] Building Visualiser image (no cache)"
+  docker build --no-cache -t abacws-visualiser-img ./visualiser
+
+  # 6) Build Frontend (no cache)
+  echo "[6/10] Building Frontend image (no cache)"
+  docker build --no-cache -t rasa-frontend-img ./rasa-frontend
+
+  # 7) Start API
+  echo "[7/10] Starting API"
+  docker run -d --name abacws-api \
+    --network survey-network \
+    -p 5000:5000 \
+    -e MONGODB_URI="mongodb://abacws-survey-mongo:27017/abacws-survey" \
+    -e JWT_SECRET="your-secret-key-here" \
+    abacws-api-img
+
+  # 8) Start Visualiser
+  echo "[8/10] Starting Visualiser"
+  docker run -d --name abacws-visualiser \
+    --network survey-network \
+    -p 8090:80 \
+    -e WEB_PORT=80 \
+    -e API_HOST=http://abacws-api:5000 \
+    abacws-visualiser-img
+
+  # 9) Start Frontend
+  echo "[9/10] Starting Frontend"
+  docker run -d --name rasa-frontend-bldg1 \
+    --network survey-network \
+    -p 3000:3000 \
+    -e PORT=3000 \
+    rasa-frontend-img
+
+  # 10) Verify endpoints
+  echo "[10/10] Verifying endpoints"
+  (echo -n "/api/health => "; curl -sI http://localhost:5000/api/health | head -n1) || true
+  (echo -n "/visualiser/ (via frontend) => "; curl -sI http://localhost:3000/visualiser/ | head -n1) || true
+  (echo -n "visualiser JS via proxy => "; curl -sI http://localhost:3000/visualiser/static/js/main.931f4780.js | head -n1) || true
+
+  cat << 'MSG'
+
+  ✅ Deployment complete (local)
+  - Frontend:   http://localhost:3000
+  - Visualiser: http://localhost:3000/visualiser/
+  - API health: http://localhost:5000/api/health
+
+  Optional: start ngrok (replace placeholders):
+    docker run -d --name abacws-survey-ngrok \
+      --network survey-network \
+      -p 4046:4040 \
+      -e NGROK_AUTHTOKEN=YOUR_TOKEN \
+      ngrok/ngrok:latest http rasa-frontend-bldg1:3000 --domain=YOUR_DOMAIN.ngrok-free.dev
+
+  MSG
+  ```
+
+  ---
 ## Running with Docker commands (without docker-compose)
 
 **Prerequisites**: Run these commands from the project root: `C:\Users\suhas\Documents\GitHub\User Survey Abacws`
@@ -529,14 +802,10 @@ docker run -d --name abacws-sender --network survey-network -p 8088:8088 -e API_
 docker run -d -it --name abacws-survey-ngrok --network survey-network -e NGROK_AUTHTOKEN=351mX4l1QmwIH9QNq3TatjyErTf_3os4QyqSDSX614JkForyL -e NGROK_REGION=Global -p 4046:4040 ngrok/ngrok:latest http rasa-frontend-bldg1:3000 --domain=wimpishly-premonarchical-keyla.ngrok-free.dev
 
 
-extra domain-
-353dwLAqYq3fDf4gvmEzVzoM1gR_22wwdveXaYWMhRduTnbWA
-swayable-katia-nondevelopmentally.ngrok-free.dev
 # View ngrok logs and get public URL
 docker logs -f abacws-ngrok
 
-# Alternative: Expose via ngrok without custom domain (free tier, auto-generated URL)
-# docker run -d --name abacws-ngrok --network survey-network -e NGROK_AUTHTOKEN=351mX4l1QmwIH9QNq3TatjyErTf_3os4QyqSDSX614JkForyL --restart unless-stopped ngrok/ngrok:latest http --region=us rasa-frontend-bldg1:3000
+
 
 # Public URLs:
 # - Reserved domain: https://wimpishly-premonarchical-keyla.ngrok-free.dev
@@ -580,6 +849,48 @@ docker rm abacws-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws-s
 docker network rm survey-network
 docker volume rm mongo-data
 ```
+
+### Survey data export via curl (users, questions, chat)
+
+You can retrieve survey users and inputs through the Survey router. Admin endpoints are currently open (no auth), while per-user endpoints require a login cookie.
+
+- All survey questions grouped by user (admin, no auth):
+
+```sh
+curl -s http://localhost:5000/api/survey/admin/questions | jq '.'
+# via API ngrok (if enabled):
+curl -s https://swayable-katia-nondevelopmentally.ngrok-free.dev/api/survey/admin/questions | jq '.'
+```
+
+- Survey stats (totals and top contributors) (admin, no auth):
+
+```sh
+curl -s http://localhost:5000/api/survey/admin/stats | jq '.'
+# via API ngrok:
+curl -s https://swayable-katia-nondevelopmentally.ngrok-free.dev/api/survey/admin/stats | jq '.'
+```
+
+- Per-user flows (login, then fetch that user’s data):
+
+```sh
+# 1) Login and capture auth cookie
+curl -s -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"test123456"}' \
+  http://localhost:5000/api/survey/login | jq '.'
+
+# 2) Get this user’s submitted questions (requires cookie)
+curl -s -b cookies.txt http://localhost:5000/api/survey/questions | jq '.'
+
+# 3) Get this user’s chat history (requires cookie)
+curl -s -b cookies.txt http://localhost:5000/api/survey/get_history | jq '.'
+```
+
+Notes about “all Mongo users”:
+- A direct "list all registered users" endpoint isn’t exposed yet. Today, you can approximate the active user list from `/api/survey/admin/questions` keys (users who submitted questions).
+- If you need a complete list of registered users (including those with no questions), either:
+  - Query Mongo directly (e.g. `mongosh` against DB `survey_db`, collection `users`), or
+  - Add a small endpoint (e.g. `GET /api/survey/admin/users`) that returns `users` collection (we can implement this on request).
+
 
 ## Contributing
 

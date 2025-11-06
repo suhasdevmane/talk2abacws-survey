@@ -7,7 +7,7 @@ export default function TopNav() {
   
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:5000/api/survey/logout', { method: 'POST', credentials: 'include' });
+      await fetch('/api/survey/logout', { method: 'POST', credentials: 'include' });
     } catch {}
     sessionStorage.removeItem('currentUser');
     sessionStorage.removeItem('chatbot_minimized');

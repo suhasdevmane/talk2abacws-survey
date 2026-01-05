@@ -4,7 +4,7 @@ services:
     container_name: abacws-mongo
     restart: always
     volumes:
-      - mongo-data:/data/db
+      - ./Mongo/mongo-data:/data/db
     ports:
       - "27017:27017"
     networks:
@@ -114,6 +114,3 @@ services:
 networks:
   survey-network:
     external: true
-
-volumes:
-  mongo-data:

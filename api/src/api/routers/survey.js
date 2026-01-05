@@ -1,7 +1,8 @@
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const fs = require('fs').promises;
+const path = require('path');
 
 const router = express.Router();
 
@@ -76,26 +77,22 @@ const authenticateToken = (req, res, next) => {
     }
 };
 
-// Register endpoint - Creates new user and returns JWT token
+// Register endpoint - Creates new user and returns JWT token (username only, no password)
 router.post('/register', async (req, res) => {
     try {
-        console.log('Registration attempt:', { username: req.body?.username, hasPassword: !!req.body?.password });
+        console.log('Registration attempt:', { username: req.body?.username });
         
         const db = await connectDB();
-        const { username, password } = req.body;
+        const { username } = req.body;
 
-        if (!username || !password) {
-            console.log('Registration failed: Missing username or password');
-            return res.status(400).json({ error: 'Username and password required' });
+        if (!username) {
+            console.log('Registration failed: Missing username');
+            return res.status(400).json({ error: 'Username is required' });
         }
 
-        // Validate username and password
+        // Validate username
         if (username.length < 3) {
             return res.status(400).json({ error: 'Username must be at least 3 characters' });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
         // Check if user exists
@@ -107,17 +104,15 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Username already exists' });
         }
 
-        // Hash password with bcrypt (10 salt rounds)
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Create user document
+        // Create user document (no password)
         const result = await usersCollection.insertOne({
             username: username.toLowerCase(),
             displayName: username,
-            password: hashedPassword,
             createdAt: new Date(),
             lastLogin: new Date(),
-            questionCount: 0
+            questionCount: 0,
+            consentAccepted: req.body.consentAccepted || false,
+            consentDate: req.body.consentDate ? new Date(req.body.consentDate) : null
         });
 
         console.log('User created successfully:', username, 'ID:', result.insertedId.toString());
@@ -135,9 +130,10 @@ router.post('/register', async (req, res) => {
         // Set token in HTTP-only cookie
         res.cookie('authToken', token, {
             httpOnly: true, // Prevents JavaScript access
-            secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+            secure: false, // Allow HTTP in development
             sameSite: 'lax', // CSRF protection
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+            path: '/' // Available across all paths
         });
 
         console.log('JWT token generated and set in cookie for user:', username);
@@ -157,17 +153,17 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Login endpoint - Validates credentials and returns JWT token
+// Login endpoint - Validates username only and returns JWT token (no password required)
 router.post('/login', async (req, res) => {
     try {
-        console.log('Login attempt:', { username: req.body?.username, hasPassword: !!req.body?.password });
+        console.log('Login attempt:', { username: req.body?.username });
         
         const db = await connectDB();
-        const { username, password } = req.body;
+        const { username } = req.body;
 
-        if (!username || !password) {
-            console.log('Login failed: Missing username or password');
-            return res.status(400).json({ error: 'Username and password required' });
+        if (!username) {
+            console.log('Login failed: Missing username');
+            return res.status(400).json({ error: 'Username is required' });
         }
 
         // Find user (case-insensitive)
@@ -176,15 +172,7 @@ router.post('/login', async (req, res) => {
 
         if (!user) {
             console.log('Login failed: User not found:', username);
-            return res.status(401).json({ error: 'Invalid username or password' });
-        }
-
-        // Verify password
-        const isValid = await bcrypt.compare(password, user.password);
-
-        if (!isValid) {
-            console.log('Login failed: Invalid password for user:', username);
-            return res.status(401).json({ error: 'Invalid username or password' });
+            return res.status(401).json({ error: 'Username not found' });
         }
 
         // Update last login timestamp
@@ -206,9 +194,10 @@ router.post('/login', async (req, res) => {
         // Set token in HTTP-only cookie
         res.cookie('authToken', token, {
             httpOnly: true, // Prevents JavaScript access (XSS protection)
-            secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+            secure: false, // Allow HTTP in development
             sameSite: 'lax', // CSRF protection
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+            path: '/' // Available across all paths
         });
 
         console.log('Login successful for user:', username);
@@ -266,13 +255,28 @@ router.get('/auth/status', authenticateToken, (req, res) => {
     }
 });
 
-// Submit question endpoint - Protected route
-router.post('/question', authenticateToken, async (req, res) => {
+// Submit question endpoint - Accepts JWT cookie or username in body (dev-friendly)
+router.post('/question', async (req, res) => {
     try {
         const db = await connectDB();
-        const { question } = req.body;
-        const userId = req.user.userId;
-        const username = req.user.username;
+        const { question, username: bodyUsername } = req.body;
+
+        // Resolve user from JWT cookie if present, otherwise fallback to provided username
+        let username = req.user?.username;
+        let userId = req.user?.userId;
+        if (!username || !userId) {
+            const fallbackUsername = String(bodyUsername || '').trim().toLowerCase();
+            if (!fallbackUsername) {
+                return res.status(401).json({ error: 'Authentication required or username missing' });
+            }
+            const usersCollection = (await connectDB()).collection('users');
+            const userDoc = await usersCollection.findOne({ username: fallbackUsername });
+            if (!userDoc) {
+                return res.status(401).json({ error: 'Username not found' });
+            }
+            username = userDoc.username;
+            userId = userDoc._id.toString();
+        }
 
         if (!question || !question.trim()) {
             return res.status(400).json({ error: 'Question is required' });
@@ -289,13 +293,12 @@ router.post('/question', authenticateToken, async (req, res) => {
 
         // Update user's question count
         const usersCollection = db.collection('users');
-        const updateResult = await usersCollection.findOneAndUpdate(
+        const updateResultDoc = await usersCollection.findOneAndUpdate(
             { _id: new ObjectId(userId) },
             { $inc: { questionCount: 1 } },
             { returnDocument: 'after' }
         );
-
-        const questionCount = updateResult?.questionCount || 0;
+        const questionCount = updateResultDoc?.value?.questionCount || 0;
 
         // Send response with suggestion if needed
         let response = {
@@ -438,6 +441,34 @@ router.get('/get_history', authenticateToken, async (req, res) => {
     }
 });
 
+router.get('/history/:username', async (req, res) => {
+    try {
+        const rawUsername = req.params.username;
+        if (!rawUsername) {
+            return res.status(400).json({ error: 'Username is required', messages: [] });
+        }
+
+        const username = String(rawUsername).trim().toLowerCase();
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required', messages: [] });
+        }
+
+        const db = await connectDB();
+        const historyCollection = db.collection('chat_history');
+
+        const history = await historyCollection.findOne({ username });
+
+        if (history && Array.isArray(history.messages)) {
+            res.json({ messages: history.messages });
+        } else {
+            res.json({ messages: [] });
+        }
+    } catch (error) {
+        console.error('Get history by username error:', error);
+        res.status(500).json({ error: 'Failed to retrieve chat history', messages: [] });
+    }
+});
+
 // Save chat history for authenticated user
 router.post('/save_history', authenticateToken, async (req, res) => {
     try {
@@ -464,6 +495,78 @@ router.post('/save_history', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Save history error:', error);
         res.status(500).json({ error: 'Failed to save chat history' });
+    }
+});
+
+// Save consent PDF to server storage
+router.post('/save-consent', express.raw({ type: 'application/pdf', limit: '10mb' }), async (req, res) => {
+    try {
+        const username = req.query.username;
+        const timestamp = req.query.timestamp;
+
+        if (!username || !timestamp) {
+            return res.status(400).json({ error: 'Username and timestamp are required' });
+        }
+
+        // Create consent-pdfs directory inside /api/src/api/data if it doesn't exist
+        const consentDir = path.join(__dirname, '../data/consent-pdfs');
+        await fs.mkdir(consentDir, { recursive: true });
+
+        // Sanitize filename
+        const safeUsername = username.replace(/[^a-z0-9_-]/gi, '_');
+        const filename = `consent_${safeUsername}_${timestamp}.pdf`;
+        const filepath = path.join(consentDir, filename);
+
+        // Save PDF buffer to disk
+        await fs.writeFile(filepath, req.body);
+
+        console.log(`Consent PDF saved for user ${username}: ${filename}`);
+        res.json({ success: true, message: 'Consent PDF saved successfully', filename });
+    } catch (error) {
+        console.error('Save consent PDF error:', error);
+        res.status(500).json({ error: 'Failed to save consent PDF' });
+    }
+});
+
+// Save chat history
+router.post('/history', async (req, res) => {
+    try {
+        const db = await connectDB();
+        const { username, messages } = req.body;
+        
+        if (!username || !Array.isArray(messages)) {
+            return res.status(400).json({ error: 'Invalid request format' });
+        }
+        
+        const historyCollection = db.collection('chat_history');
+        await historyCollection.updateOne(
+            { username: username.toLowerCase() },
+            { $set: { messages, lastUpdated: new Date() } },
+            { upsert: true }
+        );
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Save history error:', error);
+        res.status(500).json({ error: 'Failed to save history' });
+    }
+});
+
+// Admin endpoint: Get all chat histories
+router.get('/admin/history', async (req, res) => {
+    try {
+        const db = await connectDB();
+        const historyCollection = db.collection('chat_history');
+        
+        const allHistory = await historyCollection.find({}).toArray();
+        
+        res.json({ 
+            count: allHistory.length,
+            histories: allHistory 
+        });
+    } catch (error) {
+        console.error('Admin get all history error:', error);
+        res.status(500).json({ error: 'Failed to retrieve all chat histories' });
     }
 });
 

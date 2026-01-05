@@ -98,14 +98,16 @@ api.get('/get_history', async (req, res) => {
 
 api.post('/save_history', async (req, res) => {
     try {
+        // Prefer authenticated user from JWT cookie; fallback to explicit username from body
         const user = getAuthenticatedUser(req);
-        if (!user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
-
-        const { messages } = req.body;
+        const { messages, username: bodyUsername } = req.body;
         if (!Array.isArray(messages)) {
             return res.status(400).json({ error: 'Messages must be an array' });
+        }
+
+        const usernameKey = (user?.username || String(bodyUsername || '')).trim().toLowerCase();
+        if (!usernameKey) {
+            return res.status(401).json({ error: 'Authentication required or username missing' });
         }
 
         const { MongoClient } = require('mongodb');
@@ -116,7 +118,7 @@ api.post('/save_history', async (req, res) => {
         const historyCollection = db.collection('chat_history');
 
         await historyCollection.updateOne(
-            { username: user.username },
+            { username: usernameKey },
             { 
                 $set: { 
                     messages: messages,
@@ -131,6 +133,39 @@ api.post('/save_history', async (req, res) => {
     } catch (error) {
         console.error('Save history error:', error);
         res.status(500).json({ error: 'Failed to save chat history' });
+    }
+});
+
+api.get('/history/:username', async (req, res) => {
+    try {
+        const rawUsername = req.params.username;
+        if (!rawUsername) {
+            return res.status(400).json({ error: 'Username is required', messages: [] });
+        }
+
+        const username = String(rawUsername).trim().toLowerCase();
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required', messages: [] });
+        }
+
+        const { MongoClient } = require('mongodb');
+        const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://mongo:27017';
+        const client = new MongoClient(MONGODB_URI);
+        await client.connect();
+        const db = client.db('survey_db');
+        const historyCollection = db.collection('chat_history');
+
+        const history = await historyCollection.findOne({ username });
+        await client.close();
+
+        if (history && Array.isArray(history.messages)) {
+            res.json({ messages: history.messages });
+        } else {
+            res.json({ messages: [] });
+        }
+    } catch (error) {
+        console.error('Get history by username error:', error);
+        res.status(500).json({ error: 'Failed to retrieve chat history', messages: [] });
     }
 });
 

@@ -172,4 +172,56 @@
   .home-body #content {
     position: relative;
     z-index: 2;
+    padding-bottom: 40px;
+  }
+
+  /* Custom scrollbar for consent items */
+  .home-body ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .home-body ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  .home-body ::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+  }
+
+  .home-body ::-webkit-scrollbar-thumb:hover {
+    background: #764ba2;
+  }
+
+  /* Card hover effects */
+  .home-body .card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .home-body .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+  }
+
+  /* Smooth animations */
+  .home-body * {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Button focus states */
+  .home-body .btn:focus {
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+  }
+
+  /* Checkbox custom styling */
+  .home-body .form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+  }
+
+  .home-body .form-check-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
   }

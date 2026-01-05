@@ -13,6 +13,14 @@ module.exports = function (app) {
       onProxyReq: (proxyReq) => {
         proxyReq.setHeader('ngrok-skip-browser-warning', 'true');
       },
+      // Suppress harmless WebSocket errors in development
+      onError: (err, req, res) => {
+        if (err.code === 'ERR_STREAM_WRITE_AFTER_END') {
+          // Ignore this error - it's a harmless race condition with HMR WebSockets
+          return;
+        }
+        console.error('Proxy error:', err);
+      },
     })
   );
 
@@ -37,6 +45,14 @@ module.exports = function (app) {
       },
       onProxyReq: (proxyReq) => {
         proxyReq.setHeader('ngrok-skip-browser-warning', 'true');
+      },
+      // Suppress harmless WebSocket errors in development
+      onError: (err, req, res) => {
+        if (err.code === 'ERR_STREAM_WRITE_AFTER_END') {
+          // Ignore this error - it's a harmless race condition with HMR WebSockets
+          return;
+        }
+        console.error('Proxy error:', err);
       },
     })
   );

@@ -1,12 +1,50 @@
 // src/components/Home.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Home.css';
 import TopNav from './TopNav';
+import ConsentForm from './ConsentForm';
+import Login from './Login';
+
+const readConsentFlag = () => {
+  if (typeof window === 'undefined') return false;
+  if (localStorage.getItem('consentAccepted') === 'true') return true;
+  return document.cookie?.split(';').some((c) => c.trim().startsWith('abacws_consent=')) || false;
+};
 
 export default function Home() {
   const navigate = useNavigate();
   const currentUser = sessionStorage.getItem('currentUser');
+  const [consentAccepted, setConsentAccepted] = useState(() => readConsentFlag());
+  const [infoSheetDownloaded, setInfoSheetDownloaded] = useState(() => {
+    return localStorage.getItem('infoSheetDownloaded') === 'true';
+  });
+
+  useEffect(() => {
+    const syncConsent = () => setConsentAccepted(readConsentFlag());
+    window.addEventListener('storage', syncConsent);
+    window.addEventListener('abacws-consent-accepted', syncConsent);
+    return () => {
+      window.removeEventListener('storage', syncConsent);
+      window.removeEventListener('abacws-consent-accepted', syncConsent);
+    };
+  }, []);
+
+  const handleInfoSheetDownload = (e) => {
+    e.preventDefault();
+    
+    // Download the PDF
+    const link = document.createElement('a');
+    link.href = process.env.PUBLIC_URL + '/03. Participant_Information.pdf';
+    link.download = 'Participant_Information.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Mark as downloaded
+    localStorage.setItem('infoSheetDownloaded', 'true');
+    setInfoSheetDownloaded(true);
+  };
 
   return (
     <div className="home-body">
@@ -18,43 +56,103 @@ export default function Home() {
       {/* Navbar */}
       <TopNav />
 
-      {/* Intro */}
-      <div className="container mt-5" id="content">
-        <div style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          padding: '60px 40px',
-          borderRadius: '20px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-          textAlign: 'center',
-          maxWidth: '800px',
-          margin: '0 auto'
-        }}>
-          <h1 style={{ 
-            fontSize: '3rem', 
-            marginBottom: '30px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>
-            Welcome to Survey System
-          </h1>
-          
-          <p style={{ fontSize: '1.3rem', color: '#666', marginBottom: '40px' }}>
-            Explore our 3D building visualization and help us improve by asking questions about what you see.
-          </p>
+      {/* Intro / Content */}
+      <div className="container-fluid px-4 mt-4" id="content" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        {!currentUser ? (
+          <div className="row g-4">
+            {/* Left: Info / PI sheet - moved to left for first impression */}
+            <div className="col-12 col-lg-3">
+              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px' }}>
+                <div className="card-body d-flex flex-column">
+                  <div className="text-center mb-3">
+                    <div style={{ fontSize: '2.5rem', color: '#667eea' }}>📋</div>
+                    <h5 className="mt-2" style={{ color: '#333', fontWeight: '600' }}>Study Information</h5>
+                  </div>
+                  <p className="text-muted" style={{ fontSize: '0.95rem' }}>
+                    Please review all study information before providing consent. This document explains:
+                  </p>
+                  <ul className="text-muted mb-3" style={{ fontSize: '0.9rem', lineHeight: '1.8' }}>
+                    <li>Research objectives</li>
+                    <li>Data collection methods</li>
+                    <li>How data will be used</li>
+                    <li>Your rights and withdrawal options</li>
+                    <li>Data protection measures</li>
+                  </ul>
+                  <button 
+                    className="btn w-100" 
+                    onClick={handleInfoSheetDownload}
+                    style={{ 
+                      borderRadius: '8px', 
+                      fontWeight: '500',
+                      background: infoSheetDownloaded ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'transparent',
+                      color: infoSheetDownloaded ? '#fff' : '#667eea',
+                      border: infoSheetDownloaded ? 'none' : '2px solid #667eea',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    {infoSheetDownloaded ? '✅ Information Sheet Downloaded' : '📄 View Full Information Sheet'}
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          {currentUser && (
-            <div>
+            {/* Center: Consent - larger and more prominent */}
+            <div className="col-12 col-lg-6">
+              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px' }}>
+                <div className="card-body">
+                  <ConsentForm onAccepted={(name) => {
+                    // Hint for login prefill
+                    sessionStorage.setItem('prefillUsername', name);
+                    setConsentAccepted(true);
+                  }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Login (gated) */}
+            <div className="col-12 col-lg-3">
+              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px' }}>
+                <div className="card-body d-flex flex-column">
+                  <Login prefillUsername={sessionStorage.getItem('prefillUsername') || localStorage.getItem('consentUsername') || ''}
+                         disabled={!consentAccepted}
+                         consentAccepted={consentAccepted} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center" style={{ padding: '40px 20px', maxWidth: '900px', margin: '0 auto' }}>
+            <div style={{ fontSize: '3.5rem', marginBottom: '16px' }}>🏢</div>
+            <h1 style={{ 
+              fontSize: '2.8rem', 
+              marginBottom: '24px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontWeight: '700'
+            }}>
+              Welcome to Survey System
+            </h1>
+            <p style={{ fontSize: '1.2rem', color: '#555', marginBottom: '40px', lineHeight: '1.6' }}>
+              Explore our interactive 3D building visualization and help us improve by asking questions about what you see.
+            </p>
+            
+            <div className="d-flex justify-content-center gap-3 flex-wrap mb-4">
               <button
                 className="btn btn-primary btn-lg"
                 onClick={() => navigate('/survey')}
                 style={{ 
-                  padding: '15px 50px',
-                  fontSize: '1.2rem',
-                  borderRadius: '30px',
-                  marginRight: '20px',
-                  marginBottom: '15px'
+                  padding: '14px 48px',
+                  fontSize: '1.15rem',
+                  borderRadius: '50px',
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  border: 'none',
+                  boxShadow: '0 4px 15px rgba(102,126,234,0.4)',
+                  transition: 'all 0.3s ease'
                 }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 🏢 Open Visualizer
               </button>
@@ -63,33 +161,135 @@ export default function Home() {
                 className="btn btn-outline-primary btn-lg"
                 onClick={() => navigate('/ideas')}
                 style={{ 
-                  padding: '15px 50px',
-                  fontSize: '1.2rem',
-                  borderRadius: '30px',
-                  marginBottom: '15px'
+                  padding: '14px 48px',
+                  fontSize: '1.15rem',
+                  borderRadius: '50px',
+                  fontWeight: '600',
+                  borderWidth: '2px',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                  e.currentTarget.style.color = '#fff';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#667eea';
+                  e.currentTarget.style.borderColor = '#667eea';
                 }}
               >
                 💡 Get Question Ideas
               </button>
+            </div>
 
-              <div style={{
-                marginTop: '40px',
-                padding: '30px',
-                background: '#f8f9fa',
-                borderRadius: '15px',
-                textAlign: 'left'
-              }}>
-                <h4 style={{ marginBottom: '20px', color: '#333' }}>How it works:</h4>
-                <ol style={{ fontSize: '1.1rem', color: '#666', lineHeight: '2' }}>
-                  <li>Click "Open Visualizer" to explore the 3D building</li>
-                  <li>Use the chatbot (bottom-right) to ask questions</li>
-                  <li>Your questions are saved to help improve the system</li>
-                  <li>Need ideas? Visit the "Ideas" page for suggestions</li>
-                </ol>
+            <div style={{
+              marginTop: '50px',
+              padding: '32px',
+              background: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '16px',
+              textAlign: 'left',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+            }}>
+              <h4 style={{ marginBottom: '20px', color: '#333', fontWeight: '600', fontSize: '1.5rem' }}>
+                📍 How it works:
+              </h4>
+              <div className="row g-3">
+                <div className="col-12 col-md-6">
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
+                    <div style={{ 
+                      minWidth: '32px', 
+                      height: '32px', 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontWeight: '700',
+                      fontSize: '0.9rem'
+                    }}>1</div>
+                    <div>
+                      <strong style={{ color: '#333', fontSize: '1.05rem' }}>Explore 3D Building</strong>
+                      <p style={{ color: '#666', marginBottom: 0, fontSize: '0.95rem', lineHeight: '1.6' }}>
+                        Click "Open Visualizer" to navigate the interactive 3D model of our building
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="col-12 col-md-6">
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
+                    <div style={{ 
+                      minWidth: '32px', 
+                      height: '32px', 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontWeight: '700',
+                      fontSize: '0.9rem'
+                    }}>2</div>
+                    <div>
+                      <strong style={{ color: '#333', fontSize: '1.05rem' }}>Ask Questions</strong>
+                      <p style={{ color: '#666', marginBottom: 0, fontSize: '0.95rem', lineHeight: '1.6' }}>
+                        Use the chatbot in the bottom-right corner to ask questions about the building
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="col-12 col-md-6">
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
+                    <div style={{ 
+                      minWidth: '32px', 
+                      height: '32px', 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontWeight: '700',
+                      fontSize: '0.9rem'
+                    }}>3</div>
+                    <div>
+                      <strong style={{ color: '#333', fontSize: '1.05rem' }}>Help Improve</strong>
+                      <p style={{ color: '#666', marginBottom: 0, fontSize: '0.95rem', lineHeight: '1.6' }}>
+                        Your questions are saved and help us understand how to improve the system
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="col-12 col-md-6">
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'start' }}>
+                    <div style={{ 
+                      minWidth: '32px', 
+                      height: '32px', 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontWeight: '700',
+                      fontSize: '0.9rem'
+                    }}>4</div>
+                    <div>
+                      <strong style={{ color: '#333', fontSize: '1.05rem' }}>Need Ideas?</strong>
+                      <p style={{ color: '#666', marginBottom: 0, fontSize: '0.95rem', lineHeight: '1.6' }}>
+                        Visit the "Ideas" page for question suggestions to get started
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

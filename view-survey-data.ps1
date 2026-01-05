@@ -3,7 +3,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [ValidateSet('summary', 'all', 'by-user', 'stats', 'export')]
+    [ValidateSet('summary', 'all', 'by-user', 'stats', 'export', 'history')]
     [string]$Action = 'summary'
 )
 
@@ -17,7 +17,7 @@ $API_BASE = "http://localhost:5000/api"
 function Get-SurveyStats {
     Write-Host "Fetching survey statistics..." -ForegroundColor Yellow
     try {
-        $response = Invoke-RestMethod -Uri "$API_BASE/admin/stats" -Method Get
+        $response = Invoke-RestMethod -Uri "$API_BASE/survey/admin/stats" -Method Get
         Write-Host ""
         Write-Host "Survey Statistics:" -ForegroundColor Green
         Write-Host "  Total Users: $($response.totalUsers)" -ForegroundColor White
@@ -36,7 +36,7 @@ function Get-SurveyStats {
 function Get-AllQuestions {
     Write-Host "Fetching all questions..." -ForegroundColor Yellow
     try {
-        $response = Invoke-RestMethod -Uri "$API_BASE/admin/questions" -Method Get
+        $response = Invoke-RestMethod -Uri "$API_BASE/survey/admin/questions" -Method Get
         Write-Host ""
         Write-Host "Total Questions: $($response.totalQuestions)" -ForegroundColor Green
         Write-Host "Total Users: $($response.userCount)" -ForegroundColor Green
@@ -60,7 +60,7 @@ function Get-AllQuestions {
 function Get-QuestionsByUser {
     Write-Host "Fetching questions grouped by user..." -ForegroundColor Yellow
     try {
-        $response = Invoke-RestMethod -Uri "$API_BASE/admin/questions" -Method Get
+        $response = Invoke-RestMethod -Uri "$API_BASE/survey/admin/questions" -Method Get
         Write-Host ""
         
         foreach ($username in $response.questionsByUser.PSObject.Properties.Name) {
@@ -75,7 +75,7 @@ function Get-QuestionsByUser {
 function Export-Questions {
     Write-Host "Exporting questions to JSON file..." -ForegroundColor Yellow
     try {
-        $response = Invoke-RestMethod -Uri "$API_BASE/admin/questions" -Method Get
+        $response = Invoke-RestMethod -Uri "$API_BASE/survey/admin/questions" -Method Get
         $filename = "survey-questions-$(Get-Date -Format 'yyyy-MM-dd-HHmmss').json"
         $response | ConvertTo-Json -Depth 10 | Out-File $filename
         Write-Host "✓ Questions exported to: $filename" -ForegroundColor Green
@@ -99,6 +99,19 @@ function Export-Questions {
     }
 }
 
+function Export-ChatHistory {
+    Write-Host "Exporting chat history to JSON file..." -ForegroundColor Yellow
+    try {
+        $response = Invoke-RestMethod -Uri "$API_BASE/survey/admin/history" -Method Get
+        $filename = "chat-history-$(Get-Date -Format 'yyyy-MM-dd-HHmmss').json"
+        $response.histories | ConvertTo-Json -Depth 10 | Out-File $filename
+        Write-Host "✓ Chat history exported to: $filename" -ForegroundColor Green
+        Write-Host "  Total users with history: $($response.count)" -ForegroundColor White
+    } catch {
+        Write-Host "Error exporting chat history: $_" -ForegroundColor Red
+    }
+}
+
 # Execute requested action
 switch ($Action) {
     'summary' {
@@ -116,6 +129,9 @@ switch ($Action) {
     'export' {
         Export-Questions
     }
+    'history' {
+        Export-ChatHistory
+    }
 }
 
 Write-Host ""
@@ -125,4 +141,5 @@ Write-Host "  .\view-survey-data.ps1 -Action all       # Show all questions" -Fo
 Write-Host "  .\view-survey-data.ps1 -Action by-user   # Show users and counts" -ForegroundColor Gray
 Write-Host "  .\view-survey-data.ps1 -Action stats     # Show statistics" -ForegroundColor Gray
 Write-Host "  .\view-survey-data.ps1 -Action export    # Export to JSON/CSV" -ForegroundColor Gray
+Write-Host "  .\view-survey-data.ps1 -Action history   # Export chat history to JSON" -ForegroundColor Gray
 Write-Host ""

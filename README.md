@@ -307,6 +307,48 @@ Key endpoints (see full `api/openapi.yaml`):
 - GET /query/data — filter devices and last data
 - GET /query/history — filter devices and their history
 
+### Survey data export via curl (users, questions, chat)
+
+You can retrieve survey users and inputs through the Survey router. Admin endpoints are currently open (no auth), while per-user endpoints require a login cookie.
+
+- All survey questions grouped by user (admin, no auth):
+
+```sh
+curl -s http://localhost:5000/api/survey/admin/questions | jq '.'
+# via API ngrok (if enabled):
+curl -s https://swayable-katia-nondevelopmentally.ngrok-free.dev/api/survey/admin/questions | jq '.'
+```
+
+- Survey stats (totals and top contributors) (admin, no auth):
+
+```sh
+curl -s http://localhost:5000/api/survey/admin/stats | jq '.'
+# via API ngrok:
+curl -s https://swayable-katia-nondevelopmentally.ngrok-free.dev/api/survey/admin/stats | jq '.'
+```
+
+- Per-user flows (login, then fetch that user’s data):
+
+```sh
+# 1) Login and capture auth cookie
+curl -s -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"test123456"}' \
+  http://localhost:5000/api/survey/login | jq '.'
+
+# 2) Get this user’s submitted questions (requires cookie)
+curl -s -b cookies.txt http://localhost:5000/api/survey/questions | jq '.'
+
+# 3) Get this user’s chat history (requires cookie)
+curl -s -b cookies.txt http://localhost:5000/api/survey/get_history | jq '.'
+```
+
+Notes about “all Mongo users”:
+- A direct "list all registered users" endpoint isn’t exposed yet. Today, you can approximate the active user list from `/api/survey/admin/questions` keys (users who submitted questions).
+- If you need a complete list of registered users (including those with no questions), either:
+  - Query Mongo directly (e.g. `mongosh` against DB `survey_db`, collection `users`), or
+  - Add a small endpoint (e.g. `GET /api/survey/admin/users`) that returns `users` collection (we can implement this on request).
+
+
 Persistence engines:
 * MongoDB (container `abacws-mongo`). Historical data per device is stored in per-device collections.
 * PostgreSQL (container `abacws-postgres`). Tables:
@@ -505,35 +547,37 @@ With Docker:
 
   ```sh
   # Stop containers if present (ignore errors)
-  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-mongo abacws-survey-ngrok 2>/dev/null || true
 
   # Remove containers (ignore errors)
-  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-mongo abacws-survey-ngrok 2>/dev/null || true
   ```
 
-  ### 1) Create Docker network and Mongo volume
+  ### 1) Create Docker network and Mongo data directory
 
   ```sh
   # Create app network if it does not exist
   docker network inspect survey-network >/dev/null 2>&1 || docker network create survey-network
 
-  # Create Mongo volume if it does not exist
-  docker volume ls | grep -q "mongo-data" || docker volume create mongo-data
+  # Create Mongo data directory if it does not exist
+  mkdir -p Mongo/mongo-data
   ```
 
   ### 2) Start MongoDB
 
   ```sh
-  docker run -d --name abacws-survey-mongo \
+  docker run -d --name abacws-mongo \
     --network survey-network \
+    --network-alias mongo \
     -p 27017:27017 \
-    -v mongo-data:/data/db \
+    -v "$PWD/Mongo/mongo-data:/data/db" \
+    --restart always \
     mongo:4.4
   ```
 
   Verify:
   ```sh
-  docker ps | grep abacws-survey-mongo
+  docker ps | grep abacws-mongo
   ```
 
   ### 3) Build images (API, Visualiser, Frontend)
@@ -557,7 +601,8 @@ With Docker:
   docker run -d --name abacws-api \
     --network survey-network \
     -p 5000:5000 \
-    -e MONGODB_URI="mongodb://abacws-survey-mongo:27017/abacws-survey" \
+    -e MONGO_URL="mongodb://abacws-mongo:27017" \
+    -e MONGODB_URI="mongodb://abacws-mongo:27017/abacws-survey" \
     -e JWT_SECRET="<YOUR_JWT_SECRET>" \
     abacws-api-img
   ```
@@ -656,16 +701,16 @@ With Docker:
 
   ```sh
   # Stop
-  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-ngrok abacws-survey-mongo
+  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-ngrok abacws-mongo
 
   # Remove
-  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-ngrok abacws-survey-mongo
+  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-ngrok abacws-mongo
 
   # Optional: remove images
   # docker rmi rasa-frontend-img abacws-visualiser-img abacws-api-img
 
-  # Optional: keep or remove Mongo data volume
-  # docker volume rm mongo-data
+  # Optional: archive or remove Mongo data directory
+  # rm -rf Mongo/mongo-data
   ```
 
   ---
@@ -683,25 +728,27 @@ With Docker:
 
   set -e
 
-  # 0) Ensure network and volume
-  echo "[0/10] Ensuring network and volume exist"
+  # 0) Ensure network and data directory
+  echo "[0/10] Ensuring network and data directory exist"
   docker network inspect survey-network >/dev/null 2>&1 || docker network create survey-network
-  (docker volume ls | grep -q "mongo-data") || docker volume create mongo-data
+  mkdir -p Mongo/mongo-data
 
   # 1) Stop containers (ignore failures)
   echo "[1/10] Stopping containers (if any)"
-  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+  docker stop rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-mongo abacws-survey-ngrok 2>/dev/null || true
 
   # 2) Remove containers (ignore failures)
   echo "[2/10] Removing containers"
-  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-survey-mongo abacws-survey-ngrok 2>/dev/null || true
+  docker rm rasa-frontend-bldg1 abacws-visualiser abacws-api abacws-mongo abacws-survey-ngrok 2>/dev/null || true
 
-  # 3) Start MongoDB (persistent volume)
+  # 3) Start MongoDB (bind mount directory)
   echo "[3/10] Starting MongoDB"
-  docker run -d --name abacws-survey-mongo \
+  docker run -d --name abacws-mongo \
     --network survey-network \
+    --network-alias mongo \
     -p 27017:27017 \
-    -v mongo-data:/data/db \
+    -v "$PWD/Mongo/mongo-data:/data/db" \
+    --restart always \
     mongo:4.4
 
   # 4) Build API (no cache)
@@ -721,7 +768,8 @@ With Docker:
   docker run -d --name abacws-api \
     --network survey-network \
     -p 5000:5000 \
-    -e MONGODB_URI="mongodb://abacws-survey-mongo:27017/abacws-survey" \
+    -e MONGO_URL="mongodb://abacws-mongo:27017" \
+    -e MONGODB_URI="mongodb://abacws-mongo:27017/abacws-survey" \
     -e JWT_SECRET="your-secret-key-here" \
     abacws-api-img
 
@@ -774,15 +822,15 @@ With Docker:
 # 1. Create network (required for inter-container communication)
 docker network create survey-network
 
-# 2. Create named volume for MongoDB (persistent storage)
-docker volume create mongo-data
+# 2. Create host directory for MongoDB (persistent storage)
+mkdir -p Mongo/mongo-data
 
-# 3. Start MongoDB with named volume
-docker run -d --name abacws-mongo --network survey-network -p 27017:27017 -v mongo-data:/data/db --restart always mongo
+# 3. Start MongoDB with bind mount
+docker run -d --name abacws-mongo --network survey-network --network-alias mongo -p 27017:27017 -v "$PWD/Mongo/mongo-data:/data/db" --restart always mongo:4.4
 
 # 4. Build and run API (depends on mongo)
 docker build -t abacws-api-img ./api
-docker run -d --name abacws-api --network survey-network --hostname apihost -p 5000:5000 -e API_PORT=5000 -e MONGO_URL=mongodb://abacws-mongo:27017 -e JWT_SECRET=change-this-jwt-secret-in-production-use-strong-random-string -e SESSION_SECRET=change-this-secret-in-production -e API_KEY=V3rySecur3Pas3word -v "${PWD}/api/src/api/data:/api/src/api/data" --restart always abacws-api-img
+docker run -d --name abacws-api --network survey-network --hostname apihost -p 5000:5000 -e API_PORT=5000 -e MONGO_URL=mongodb://abacws-mongo:27017 -e MONGODB_URI=mongodb://abacws-mongo:27017/abacws-survey -e JWT_SECRET=change-this-jwt-secret-in-production-use-strong-random-string -e SESSION_SECRET=change-this-secret-in-production -e API_KEY=V3rySecur3Pas3word -v "${PWD}/api/src/api/data:/api/src/api/data" --restart always abacws-api-img
 
 # 5. Build and run Visualiser (depends on api)
 docker build -t abacws-visualiser-img ./visualiser
@@ -790,7 +838,7 @@ docker run -d --name abacws-visualiser --network survey-network --hostname visua
 
 # 6. Build and run Rasa Frontend (depends on api)
 docker build -t rasa-frontend-img ./rasa-frontend
-docker run -d --name rasa-frontend-bldg1 --network survey-network --hostname rasa-frontend-host-bldg1 -p 3000:3000 -e NODE_ENV=development -e REACT_APP_API_URL=http://localhost:5000/api -e REACT_APP_VISUALIZER_URL=http://localhost:8090 -v "${PWD}/rasa-frontend:/app" -v /app/node_modules --restart unless-stopped rasa-frontend-img npm start
+docker run -d --name rasa-frontend-bldg1 --network survey-network --hostname rasa-frontend-host-bldg1 -p 3000:3000 -e NODE_ENV=development -v "${PWD}/rasa-frontend:/app" -v /app/node_modules --restart unless-stopped rasa-frontend-img npm start
 
 # 7. Build and run Sender/Telemetry service (depends on api and visualiser)
 docker build -t abacws-sender-img -f telemetry/Dockerfile .
@@ -802,23 +850,28 @@ docker run -d --name abacws-sender --network survey-network -p 8088:8088 -e API_
 docker run -d -it --name abacws-survey-ngrok --network survey-network -e NGROK_AUTHTOKEN=351mX4l1QmwIH9QNq3TatjyErTf_3os4QyqSDSX614JkForyL -e NGROK_REGION=Global -p 4046:4040 ngrok/ngrok:latest http rasa-frontend-bldg1:3000 --domain=wimpishly-premonarchical-keyla.ngrok-free.dev
 
 
+extra domain-
+353dwLAqYq3fDf4gvmEzVzoM1gR_22wwdveXaYWMhRduTnbWA
+swayable-katia-nondevelopmentally.ngrok-free.dev
 # View ngrok logs and get public URL
 docker logs -f abacws-ngrok
 
-
+# Alternative: Expose via ngrok without custom domain (free tier, auto-generated URL)
+# docker run -d --name abacws-ngrok --network survey-network -e NGROK_AUTHTOKEN=351mX4l1QmwIH9QNq3TatjyErTf_3os4QyqSDSX614JkForyL --restart unless-stopped ngrok/ngrok:latest http --region=us rasa-frontend-bldg1:3000
 
 # Public URLs:
 # - Reserved domain: https://wimpishly-premonarchical-keyla.ngrok-free.dev
 # - TinyURL redirect: https://tinyurl.com/talk2abacws-survey
 ```
 
-**To restore MongoDB from local mongo/ folder** (if you have existing data):
+**To restore MongoDB from a saved Mongo/ folder** (if you have existing data):
 ```pwsh
 # Stop mongo container
 docker stop abacws-mongo
 
-# Copy local mongo/ files into the named volume
-docker run --rm -v mongo-data:/data/db -v "${PWD}/mongo:/backup" mongo cp -r /backup/. /data/db/
+# Replace contents of the bind mount with your backup
+rm -rf Mongo/mongo-data/*
+cp -a /path/to/backup/. Mongo/mongo-data/
 
 # Start mongo again
 docker start abacws-mongo
@@ -844,54 +897,30 @@ docker stop abacws-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws
 docker rm abacws-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws-sender abacws-ngrok
 ```
 
-**Remove network and volume** (WARNING: deletes all MongoDB data):
+**Remove network and data directory** (WARNING: deletes all MongoDB data):
 ```pwsh
 docker network rm survey-network
-docker volume rm mongo-data
+rm -rf Mongo/mongo-data
 ```
 
-### Survey data export via curl (users, questions, chat)
+**see all responses locally using curl**
+```curl -s http://localhost:5000/api/survey/admin/questions | head
+```
+<!-- or prettier print -->
+```
 
-You can retrieve survey users and inputs through the Survey router. Admin endpoints are currently open (no auth), while per-user endpoints require a login cookie.
-
-- All survey questions grouped by user (admin, no auth):
-
-```sh
 curl -s http://localhost:5000/api/survey/admin/questions | jq '.'
-# via API ngrok (if enabled):
-curl -s https://swayable-katia-nondevelopmentally.ngrok-free.dev/api/survey/admin/questions | jq '.'
+
 ```
-
-- Survey stats (totals and top contributors) (admin, no auth):
-
-```sh
-curl -s http://localhost:5000/api/survey/admin/stats | jq '.'
-# via API ngrok:
-curl -s https://swayable-katia-nondevelopmentally.ngrok-free.dev/api/survey/admin/stats | jq '.'
+<!-- or  paste as one line the following command-->
 ```
-
-- Per-user flows (login, then fetch that user’s data):
-
-```sh
-# 1) Login and capture auth cookie
-curl -s -c cookies.txt -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"test123456"}' \
-  http://localhost:5000/api/survey/login | jq '.'
-
-# 2) Get this user’s submitted questions (requires cookie)
-curl -s -b cookies.txt http://localhost:5000/api/survey/questions | jq '.'
-
-# 3) Get this user’s chat history (requires cookie)
-curl -s -b cookies.txt http://localhost:5000/api/survey/get_history | jq '.'
-```
-
-Notes about “all Mongo users”:
-- A direct "list all registered users" endpoint isn’t exposed yet. Today, you can approximate the active user list from `/api/survey/admin/questions` keys (users who submitted questions).
-- If you need a complete list of registered users (including those with no questions), either:
-  - Query Mongo directly (e.g. `mongosh` against DB `survey_db`, collection `users`), or
-  - Add a small endpoint (e.g. `GET /api/survey/admin/users`) that returns `users` collection (we can implement this on request).
-
-
+curl -s http://localhost:5000/api/survey/admin/questions \
+  | jq -r '.questionsByUser
+    | to_entries[]
+    | "\(.key)
+  - " + (.value | map(.question) | join("\n  - "))'
+  ```
+  
 ## Contributing
 
 PRs and issues welcome. Please run builds locally and sanity-check Docker compose before submitting.

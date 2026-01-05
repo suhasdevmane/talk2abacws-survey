@@ -1,21 +1,33 @@
 // src/components/Login.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import db from '../db';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
-function Login() {
+function Login({ prefillUsername = '', disabled = false, consentAccepted = false }) {
   const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Prefill username, if provided by consent step
+  useEffect(() => {
+    const fromSession = sessionStorage.getItem('prefillUsername');
+    const fromLocal = localStorage.getItem('consentUsername');
+    const initial = prefillUsername || fromSession || fromLocal || '';
+    if (initial) setUsername(initial);
+  }, [prefillUsername]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     
-    if (!username.trim() || !password.trim()) {
-      alert('Please enter both username and password');
+    if (disabled || !consentAccepted) {
+      alert('Please accept the consent form before logging in.');
+      return;
+    }
+
+    if (!username.trim()) {
+      alert('Please enter your username');
       return;
     }
 
@@ -29,12 +41,19 @@ function Login() {
           credentials: 'include', // Important: Send cookies with request
           body: JSON.stringify({ 
             username: username.trim(), 
-            password,
-            displayName: username.trim() // Use username as display name by default
+            displayName: username.trim(), // Use username as display name by default
+            consentAccepted: consentAccepted,
+            consentDate: new Date().toISOString()
           })
         });
         
-        const data = await res.json();
+        let data;
+        try {
+            data = await res.json();
+        } catch (jsonError) {
+            console.error('Failed to parse registration response:', jsonError);
+            throw new Error(`Server returned non-JSON response: ${res.status} ${res.statusText}`);
+        }
         
         if (!res.ok) {
           alert(data.error || 'Registration failed');
@@ -49,7 +68,7 @@ function Login() {
         try {
           const existing = await db.users.where('username').equals(username.trim()).first();
           if (!existing) {
-            await db.users.add({ username: username.trim(), password });
+            await db.users.add({ username: username.trim() });
           }
           await db.chatHistory.add({ username: username.trim(), messages: [] });
         } catch (dbError) {
@@ -76,7 +95,7 @@ function Login() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // Important: Send/receive cookies
-        body: JSON.stringify({ username: username.trim(), password })
+        body: JSON.stringify({ username: username.trim() })
       });
       
       const data = await res.json();
@@ -89,7 +108,7 @@ function Login() {
         try {
           const existing = await db.users.where('username').equals(username.trim()).first();
           if (!existing) {
-            await db.users.add({ username: username.trim(), password });
+            await db.users.add({ username: username.trim() });
           }
         } catch (dbError) {
           console.warn('Local DB storage failed:', dbError);
@@ -105,9 +124,9 @@ function Login() {
       }
 
       if (res.status === 401) {
-        // Offer registration on invalid credentials
+        // Offer registration on invalid username
         setIsLoading(false);
-        if (window.confirm('Invalid username or password. Would you like to register this username?')) {
+        if (window.confirm('Username not found. Would you like to register this username?')) {
           setIsLoading(true);
           await doRegister();
         }
@@ -133,10 +152,15 @@ function Login() {
   };
 
   return (
-    <div className="login-container" style={{ margin: '50px auto', width: '300px' }}>
+    <div className="login-container" style={{ margin: '10px auto', width: '300px' }}>
       <h2>Login / Register</h2>
       <p><strong>Welcome, and thank you for taking part in the survey.</strong></p>
-      <p> Please use any Username and create a password to save your progress.</p>
+      <p>Please enter your username to continue.</p>
+      {!consentAccepted && (
+        <div className="alert alert-warning" role="alert">
+          Please review and accept the consent form first.
+        </div>
+      )}
       <form onSubmit={handleLogin}>
         <div>
           <label>Username:</label>
@@ -145,28 +169,16 @@ function Login() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required 
-            disabled={isLoading}
+            disabled={isLoading || disabled || !consentAccepted}
             style={{ width: '100%', marginBottom: '10px' }}
+            placeholder="Enter your username"
           />
         </div>
-        <div>
-          <label>Password:</label>
-          <input 
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required 
-            disabled={isLoading}
-            style={{ width: '100%', marginBottom: '10px' }}
-          />
-        </div>
-        <button type="submit" disabled={isLoading} style={{ width: '100%' }}>
+        <button type="submit" disabled={isLoading || disabled || !consentAccepted} style={{ width: '100%' }}>
           {isLoading ? 'Please wait...' : 'Login / Register'}
         </button>
       </form>
-      <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>
-        <p>JWT Authentication Enabled</p>
-        
+      <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>        
       </div>
     </div>
   );

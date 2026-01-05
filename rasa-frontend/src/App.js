@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import ChatBot from './components/ChatBot';
-import Login from './components/Login';
+import Home from './components/Home';
 import Survey from './pages/Survey';
 import Ideas from './pages/Ideas';
 
@@ -22,8 +22,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={currentUser ? <Navigate to="/survey" /> : <Navigate to="/login" />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Home />} />
         <Route path="/survey" element={currentUser ? <Survey /> : <Navigate to="/login" />} />
         <Route path="/ideas" element={currentUser ? <Ideas /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />

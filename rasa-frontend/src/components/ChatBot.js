@@ -30,84 +30,193 @@ function ChatBot() {
   });
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // New loading state
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const textAreaRef = useRef(null);
   const messagesEndRef = useRef(null);
   const currentUser = sessionStorage.getItem('currentUser');
+  // Welcome callout bubble to draw attention to the chatbot when user lands after login
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try {
+      const already = sessionStorage.getItem('chatbot_welcome_shown');
+      return already === 'true' ? false : true;
+    } catch { return true; }
+  });
 
 
   // Load chat history from server on mount, fallback to Dexie
   useEffect(() => {
     if (!currentUser) return;
-    (async () => {
+    let cancelled = false;
+    setHistoryLoaded(false);
+
+    const usernameKey = String(currentUser || '').trim().toLowerCase();
+    if (!usernameKey) {
+      setHistoryLoaded(true);
+      return;
+    }
+
+    const upsertLocalHistory = async (msgs) => {
       try {
-  const res = await fetch(`${API_BASE}/get_history`, { credentials: 'include' });
+        const record = await db.chatHistory.where('username').equals(usernameKey).first();
+        if (record) {
+          await db.chatHistory.update(record.id, { messages: msgs });
+        } else {
+          await db.chatHistory.add({ username: usernameKey, messages: msgs });
+        }
+      } catch (dbError) {
+        console.warn('Local DB storage failed:', dbError);
+      }
+    };
+
+    const loadHistory = async () => {
+      try {
+        console.log('Loading chat history for user:', usernameKey);
+        const historyUrl = `${API_BASE}/survey/history/${encodeURIComponent(usernameKey)}`;
+        console.log('Fetching from:', historyUrl);
+        const res = await fetch(historyUrl);
+        console.log('History fetch response status:', res.status);
         if (res.ok) {
           const data = await res.json();
+          console.log('History data received:', data);
           const msgs = Array.isArray(data.messages) ? data.messages : [];
+          console.log('Number of messages:', msgs.length);
           if (msgs.length > 0) {
-            setMessages(msgs);
-            await db.chatHistory.where('username').equals(currentUser).modify({ messages: msgs });
+            if (!cancelled) {
+              setMessages(msgs);
+              console.log('Chat history loaded from server successfully');
+            }
+            await upsertLocalHistory(msgs);
+            if (!cancelled) {
+              setHistoryLoaded(true);
+            }
             return;
+          } else {
+            console.log('No messages found in server response, will try Dexie');
           }
+        } else {
+          console.warn('History fetch failed with status:', res.status);
         }
       } catch (e) {
-        console.warn('Falling back to Dexie for chat history:', e);
+        if (!cancelled) {
+          console.warn('Error loading chat history from server, falling back to Dexie:', e);
+        }
       }
-      // Dexie fallback or default greeting
-      const record = await db.chatHistory.where('username').equals(currentUser).first();
-      if (record && record.messages && record.messages.length > 0) {
-        setMessages(record.messages);
-      } else {
-        // Use a single array containing both greeting messages.
-        // If you'd rather show them one-by-one, see the staggered example below.
-        const greet = [
-          {
-            sender: 'bot',
-            text: 'Welcome to survey chat! Please add your question for our improvement suggestions. To explore, use Floor 5 on the visualizer to see sensors deployed and pick any one.',
-            timestamp: new Date().toLocaleTimeString()
-          },
-          {
-            sender: 'bot',
-            text: 'Use Ideas tab for ideas to add your questions.',
-            timestamp: new Date().toLocaleTimeString()
-          }
-        ];
-        setMessages(greet);
 
-        await db.chatHistory.add({ username: currentUser, messages: greet });
+      if (cancelled) return;
+
+      try {
+        const record = await db.chatHistory.where('username').equals(usernameKey).first();
+        if (cancelled) return;
+        if (record && record.messages && record.messages.length > 0) {
+          if (!cancelled) {
+            setMessages(record.messages);
+            setHistoryLoaded(true);
+          }
+          return;
+        }
+      } catch (dbErr) {
+        if (!cancelled) {
+          console.warn('Local history lookup failed:', dbErr);
+        }
       }
-    })();
+
+      if (cancelled) return;
+
+      const greet = [
+        {
+          sender: 'bot',
+          text: 'Welcome to survey chat! Please add your question for our improvement suggestions. To explore, use Floor 5 on the visualizer to see sensors deployed and pick any one.',
+          timestamp: new Date().toLocaleTimeString()
+        },
+        {
+          sender: 'bot',
+          text: 'Use Ideas tab for ideas to add your questions.',
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ];
+
+      if (!cancelled) {
+        setMessages(greet);
+      }
+      await upsertLocalHistory(greet);
+      if (!cancelled) {
+        setHistoryLoaded(true);
+      }
+    };
+
+    loadHistory();
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser]);
 
   // Save chat history locally and to server; auto-scroll
   useEffect(() => {
-    if (!currentUser) return;
-    (async () => {
-      const record = await db.chatHistory.where('username').equals(currentUser).first();
-      if (record) {
-        await db.chatHistory.update(record.id, { messages });
-      } else {
-        await db.chatHistory.add({ username: currentUser, messages });
-      }
+    if (!currentUser || !historyLoaded) return;
+    let cancelled = false;
+
+    const usernameKey = String(currentUser || '').trim().toLowerCase();
+    if (!usernameKey) return;
+
+    const persistHistory = async () => {
+      console.log(`Saving chat history for ${usernameKey}, message count: ${messages.length}`);
       try {
-        await fetch(`${API_BASE}/save_history`, {
+        const record = await db.chatHistory.where('username').equals(usernameKey).first();
+        if (cancelled) return;
+        if (record) {
+          await db.chatHistory.update(record.id, { messages });
+          console.log('Updated local DB with chat history');
+        } else {
+          await db.chatHistory.add({ username: usernameKey, messages });
+          console.log('Added new chat history to local DB');
+        }
+      } catch (dbError) {
+        console.warn('Local DB storage failed:', dbError);
+      }
+
+      try {
+        console.log('Saving chat history to server...');
+        const saveRes = await fetch(`${API_BASE}/survey/history`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ messages })
+          body: JSON.stringify({ messages, username: usernameKey })
         });
+        console.log('Save history response status:', saveRes.status);
+        if (saveRes.ok) {
+          const saveData = await saveRes.json();
+          console.log('Chat history saved to server successfully:', saveData);
+        } else {
+          const errorText = await saveRes.text();
+          console.warn('Failed to save history to server:', saveRes.status, errorText);
+        }
       } catch (e) {
         console.warn('Failed to sync history to server:', e);
       }
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    })();
-  }, [messages, currentUser]);
+
+      if (!cancelled) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
+    persistHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, currentUser, historyLoaded]);
 
   const addMessage = (message) => {
     if (!message.timestamp) {
       message.timestamp = new Date().toLocaleTimeString();
     }
-    setMessages(prev => [...prev, message]);
+    console.log('Adding message to chat:', message);
+    setMessages(prev => {
+      const newMessages = [...prev, message];
+      console.log('Total messages after add:', newMessages.length);
+      return newMessages;
+    });
   };
 
   const sendMessage = async () => {
@@ -122,7 +231,8 @@ function ChatBot() {
     try {
       // Submit question to survey API
       const response = await axios.post(SURVEY_ENDPOINT, {
-        question: userInput
+        question: userInput,
+        username: String(currentUser || '').trim().toLowerCase()
       }, {
         withCredentials: true
       });
@@ -277,6 +387,18 @@ function ChatBot() {
     };
   }, [isFullScreen, minimized]);
 
+  // Show a welcome bubble when a user is logged in and the widget is minimized
+  useEffect(() => {
+    if (!currentUser) return; // only for logged-in users
+    if (minimized && showWelcome) {
+      const t = setTimeout(() => {
+        try { sessionStorage.setItem('chatbot_welcome_shown', 'true'); } catch {}
+        setShowWelcome(false);
+      }, 8000);
+      return () => clearTimeout(t);
+    }
+  }, [currentUser, minimized, showWelcome]);
+
   // Full chat UI view
   const fullChatUI = (
     <Container id="chat-container" className={containerClass} style={containerStyle}>
@@ -391,7 +513,57 @@ function ChatBot() {
 
   const minimizedView = (
     <div className="chat-minimized" style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
-      <Button variant="primary" onClick={toggleMinimize} style={{ borderRadius: '50%', width: '60px', height: '60px', padding: 0 }}>
+      {/* Welcome bubble callout */}
+      {currentUser && showWelcome && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="chatbot-welcome-bubble"
+          style={{
+            position: 'absolute',
+            bottom: '78px',
+            right: '0px',
+            maxWidth: '280px',
+            background: 'linear-gradient(135deg, #0d6efd 0%, #5a8dee 100%)',
+            color: '#fff',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            boxShadow: '0 6px 20px rgba(13,110,253,0.35)',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <div style={{ fontWeight: 600, marginRight: 'auto' }}>Welcome</div>
+            <button
+              onClick={() => { try { sessionStorage.setItem('chatbot_welcome_shown', 'true'); } catch {}; setShowWelcome(false); }}
+              aria-label="Dismiss chatbot welcome"
+              style={{
+                background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer',
+                lineHeight: 1, fontSize: 16, padding: 0
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.3 }}>
+            Thanks for taking part in the survey. Use the chatbot to send us your questions.
+          </div>
+          {/* Tail */}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              right: 18,
+              bottom: -8,
+              width: 0,
+              height: 0,
+              borderLeft: '8px solid transparent',
+              borderRight: '8px solid transparent',
+              borderTop: '8px solid #5a8dee'
+            }}
+          />
+        </div>
+      )}
+      <Button variant="primary" onClick={() => { setShowWelcome(false); toggleMinimize(); }} style={{ borderRadius: '50%', width: '60px', height: '60px', padding: 0 }}>
         <BsChatDotsFill size={30} />
       </Button>
     </div>

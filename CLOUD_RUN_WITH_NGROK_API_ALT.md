@@ -11,7 +11,7 @@ Notes
 # ============================
 # 0) Optional clean up (only if needed)
 # ============================
-# docker rm -f abacws-survey-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws-sender abacws-survey-ngrok
+# docker rm -f abacws-mongo abacws-api abacws-visualiser rasa-frontend-bldg1 abacws-sender abacws-survey-ngrok
 # docker network rm survey-network
 # docker volume rm mongo-data
 
@@ -24,7 +24,7 @@ docker volume create mongo-data
 # ============================
 # 2) MongoDB
 # ============================
-docker run -d --name abacws-survey-mongo --network survey-network -p 27017:27017 -v mongo-data:/data/db --restart always mongo
+docker run -d --name abacws-mongo --network survey-network --network-alias mongo -p 27017:27017 -v mongo-data:/data/db --restart always mongo
 
 # ============================
 # 3) API
@@ -32,7 +32,8 @@ docker run -d --name abacws-survey-mongo --network survey-network -p 27017:27017
 docker build -t abacws-api-img ./api
 docker run -d --name abacws-api --network survey-network --hostname apihost -p 5000:5000 `
   -e API_PORT=5000 `
-  -e MONGO_URL=mongodb://abacws-survey-mongo:27017 `
+  -e MONGO_URL=mongodb://abacws-mongo:27017 `
+  -e MONGODB_URI=mongodb://abacws-mongo:27017/abacws-survey `
   -e JWT_SECRET=change-this-jwt-secret-in-production-use-strong-random-string `
   -e SESSION_SECRET=change-this-secret-in-production `
   -e API_KEY=V3rySecur3Pas3word `

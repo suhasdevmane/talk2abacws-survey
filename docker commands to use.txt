@@ -19,4 +19,4 @@ docker run -d --name abacws-visualiser --hostname visualiserhost --restart alway
 
 docker run -d --name rasa-frontend-bldg1 --hostname rasa-frontend-host-bldg1 --restart unless-stopped -p 3000:3000 -v ./rasa-frontend/:/app -v /app/node_modules -e NODE_ENV=development -e REACT_APP_API_URL=http://localhost:5000/api -e REACT_APP_VISUALIZER_URL=http://localhost:8090 --network survey-network rasa-frontend npm start
 
-docker run -d --name abacws-sender --restart always -e API_BASE=http://api:5000/api -e INTERVAL_SECONDS=10 -e API_HEALTH=http://api:5000/health -e VIS_HEALTH=http://visualiser:80/health -p 8088:8088 --network survey-network --health-cmd='wget -qO- http://localhost:8088/health | grep ok' --health-interval=30s --health-timeout=5s --health-retries=5 abacws-sender
+docker run -d --name abacws-sender --restart always -e API_BASE=http://api:5000/api -e INTERVAL_SECONDS=30 -e API_HEALTH=http://api:5000/health -e VIS_HEALTH=http://visualiser:80/health -p 8088:8088 --network survey-network --health-cmd='wget -qO- http://localhost:8088/health | grep ok' --health-interval=30s --health-timeout=5s --health-retries=5 abacws-sender

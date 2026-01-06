@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir requests
 
 # Defaults for in-network service discovery
 ENV API_BASE=http://api:5000/api \
-    INTERVAL_SECONDS=10 \
+    INTERVAL_SECONDS=30 \
     PORT=8088 \
     API_HEALTH=http://api:5000/health \
     VIS_HEALTH=http://visualiser:80/health

@@ -1,0 +1,225 @@
+{
+  "totalQuestions": 35,
+  "userCount": 12,
+  "questionsByUser": {
+    "testuser_1767723403": {
+      "roles": [
+        "Occupants/Tenants/Employees",
+        "IT/Data Scientists"
+      ],
+      "questions": [
+        {
+          "question": "What is the temperature in Room 101? (Test ID: testuser_1767723403)",
+          "timestamp": "2026-01-06T18:16:43.230Z"
+        }
+      ]
+    },
+    "testuser_1767723343": {
+      "roles": [
+        "Occupants/Tenants/Employees",
+        "IT/Data Scientists"
+      ],
+      "questions": [
+        {
+          "question": "What is the temperature in Room 101? (Test ID: testuser_1767723343)",
+          "timestamp": "2026-01-06T18:15:44.051Z"
+        }
+      ]
+    },
+    "xyz2": {
+      "roles": [
+        "Real Estate Developers"
+      ],
+      "questions": [
+        {
+          "question": "hey",
+          "timestamp": "2026-01-06T18:15:35.447Z"
+        },
+        {
+          "question": "how r u",
+          "timestamp": "2026-01-06T18:15:34.067Z"
+        },
+        {
+          "question": "hi",
+          "timestamp": "2026-01-06T18:15:31.890Z"
+        }
+      ]
+    },
+    "testuser_1767723202": {
+      "roles": [
+        "Occupants/Tenants/Employees",
+        "IT/Data Scientists"
+      ],
+      "questions": [
+        {
+          "question": "What is the temperature in Room 101? (Test ID: testuser_1767723202)",
+          "timestamp": "2026-01-06T18:13:22.289Z"
+        }
+      ]
+    },
+    "xyz": {
+      "roles": [
+        "Building Owners/Property Managers"
+      ],
+      "questions": [
+        {
+          "question": "hey dear",
+          "timestamp": "2026-01-06T17:52:19.933Z"
+        }
+      ]
+    },
+    "suhasdevmane10": {
+      "roles": [
+        "Compliance and Regulatory Bodies"
+      ],
+      "questions": [
+        {
+          "question": "Hello",
+          "timestamp": "2026-01-06T17:44:05.047Z"
+        },
+        {
+          "question": "Hi",
+          "timestamp": "2026-01-06T17:43:48.827Z"
+        }
+      ]
+    },
+    "xyz1": {
+      "roles": [
+        "Real Estate Developers"
+      ],
+      "questions": [
+        {
+          "question": "Hi",
+          "timestamp": "2026-01-06T17:26:39.152Z"
+        }
+      ]
+    },
+    "suhasdevmane3": {
+      "roles": [],
+      "questions": [
+        {
+          "question": "1",
+          "timestamp": "2026-01-05T15:53:57.698Z"
+        },
+        {
+          "question": "2",
+          "timestamp": "2026-01-05T15:53:56.587Z"
+        },
+        {
+          "question": "3",
+          "timestamp": "2026-01-05T15:53:55.319Z"
+        },
+        {
+          "question": "4",
+          "timestamp": "2026-01-05T15:53:54.585Z"
+        },
+        {
+          "question": "5",
+          "timestamp": "2026-01-05T15:53:53.973Z"
+        },
+        {
+          "question": "bieye",
+          "timestamp": "2026-01-05T15:53:00.516Z"
+        },
+        {
+          "question": "Hihey",
+          "timestamp": "2026-01-05T15:52:53.767Z"
+        }
+      ]
+    },
+    "suhasdevmane2": {
+      "roles": [],
+      "questions": [
+        {
+          "question": "5",
+          "timestamp": "2026-01-05T15:53:43.313Z"
+        },
+        {
+          "question": "4",
+          "timestamp": "2026-01-05T15:53:42.721Z"
+        },
+        {
+          "question": "3",
+          "timestamp": "2026-01-05T15:53:42.263Z"
+        },
+        {
+          "question": "2",
+          "timestamp": "2026-01-05T15:53:41.798Z"
+        },
+        {
+          "question": "1",
+          "timestamp": "2026-01-05T15:53:41.331Z"
+        }
+      ]
+    },
+    "suhasdevmane1": {
+      "roles": [],
+      "questions": [
+        {
+          "question": "1",
+          "timestamp": "2026-01-05T15:53:24.637Z"
+        },
+        {
+          "question": "2",
+          "timestamp": "2026-01-05T15:53:24.120Z"
+        },
+        {
+          "question": "3",
+          "timestamp": "2026-01-05T15:53:22.987Z"
+        },
+        {
+          "question": "4",
+          "timestamp": "2026-01-05T15:53:22.401Z"
+        },
+        {
+          "question": "5",
+          "timestamp": "2026-01-05T15:53:21.857Z"
+        },
+        {
+          "question": "hey hey",
+          "timestamp": "2026-01-05T14:56:51.225Z"
+        }
+      ]
+    },
+    "suhasdevmane": {
+      "roles": [
+        "Researchers/Academics"
+      ],
+      "questions": [
+        {
+          "question": "5",
+          "timestamp": "2026-01-05T15:53:12.428Z"
+        },
+        {
+          "question": "4",
+          "timestamp": "2026-01-05T15:53:11.730Z"
+        },
+        {
+          "question": "3",
+          "timestamp": "2026-01-05T15:53:11.190Z"
+        },
+        {
+          "question": "2",
+          "timestamp": "2026-01-05T15:53:10.770Z"
+        },
+        {
+          "question": "1",
+          "timestamp": "2026-01-05T15:53:10.338Z"
+        }
+      ]
+    },
+    "suahsdevmane1": {
+      "roles": [],
+      "questions": [
+        {
+          "question": "hIHihiHIhhIHIh",
+          "timestamp": "2026-01-05T14:53:51.195Z"
+        },
+        {
+          "question": "Hi HI HI hI",
+          "timestamp": "2026-01-05T14:53:44.016Z"
+        }
+      ]
+    }
+  }
+}

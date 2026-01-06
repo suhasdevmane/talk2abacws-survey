@@ -15,7 +15,7 @@ const hasStoredConsent = () => {
   return document.cookie?.split(';').some((c) => c.trim().startsWith('abacws_consent=')) || false;
 };
 
-export default function ConsentForm({ onAccepted }) {
+export default function ConsentForm({ onAccepted, disabled = false }) {
   const [username, setUsername] = useState(() => sessionStorage.getItem('prefillUsername') || localStorage.getItem('consentUsername') || '');
   const consentLines = [
     'I confirm that I have read the information sheet dated 24/11/2025 version 1.1 for the above research project.',
@@ -38,11 +38,13 @@ export default function ConsentForm({ onAccepted }) {
   useEffect(() => { setSelectAll(allChecked); }, [allChecked]);
 
   const toggleAll = (value) => {
+    if (disabled) return;
     setSelectAll(value);
     setChecks(checks.map(() => value));
   };
 
   const handleCheck = (idx, value) => {
+    if (disabled) return;
     setChecks((arr) => arr.map((v, i) => (i === idx ? value : v)));
   };
 
@@ -327,7 +329,7 @@ export default function ConsentForm({ onAccepted }) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="d-flex flex-column flex-grow-1" style={{ minHeight: 0 }}>
+      <form onSubmit={handleSubmit} className="d-flex flex-column flex-grow-1" style={{ minHeight: 0, opacity: disabled ? 0.6 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
         <div className="mb-2 flex-shrink-0">
           <label className="form-label mb-1" style={{ fontWeight: '600', color: '#333', fontSize: '0.9rem' }}>
             Participant Name <span className="text-muted" style={{ fontWeight: '400', fontSize: '0.8rem' }}>(for PDF)</span>
@@ -338,7 +340,7 @@ export default function ConsentForm({ onAccepted }) {
             value={username} 
             onChange={(e) => setUsername(e.target.value)} 
             placeholder="Enter your name" 
-            disabled={submitting} 
+            disabled={submitting || disabled} 
             required 
             style={{ 
               borderRadius: '6px',
@@ -366,6 +368,7 @@ export default function ConsentForm({ onAccepted }) {
                 id="selectAll" 
                 checked={selectAll} 
                 onChange={(e) => toggleAll(e.target.checked)}
+                disabled={disabled}
                 style={{ cursor: 'pointer' }}
               />
               <label className="form-check-label" htmlFor="selectAll" style={{ cursor: 'pointer', fontWeight: '600', color: '#667eea', fontSize: '0.85rem' }}>
@@ -396,6 +399,7 @@ export default function ConsentForm({ onAccepted }) {
                   id={`c-${idx}`} 
                   checked={!!checks[idx]} 
                   onChange={(e) => handleCheck(idx, e.target.checked)}
+                  disabled={disabled}
                   style={{ 
                     cursor: 'pointer',
                     marginTop: '0.2em'
@@ -439,13 +443,13 @@ export default function ConsentForm({ onAccepted }) {
           <button 
             type="submit" 
             className="btn btn-primary w-100 btn-sm" 
-            disabled={submitting || !allChecked || !username.trim()}
+            disabled={submitting || !allChecked || !username.trim() || disabled}
             style={{
               padding: '10px',
               fontSize: '0.95rem',
               fontWeight: '600',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: hasStoredConsent() ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               border: 'none',
               boxShadow: '0 4px 12px rgba(102,126,234,0.3)',
               transition: 'all 0.3s ease'
@@ -456,6 +460,8 @@ export default function ConsentForm({ onAccepted }) {
                 <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                 Generating PDF...
               </>
+            ) : hasStoredConsent() ? (
+               <>✅ Accepted & PDF Downloaded</>
             ) : (
               <>📄 Accept & Download PDF</>
             )}

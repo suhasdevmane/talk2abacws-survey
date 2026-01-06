@@ -132,7 +132,9 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  <ConsentForm onAccepted={(name) => {
+                  <ConsentForm 
+                    disabled={!infoSheetDownloaded}
+                    onAccepted={(name) => {
                     // Hint for login prefill
                     sessionStorage.setItem('prefillUsername', name);
                     setConsentAccepted(true);

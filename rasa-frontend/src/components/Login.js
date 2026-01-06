@@ -186,11 +186,11 @@ function Login({ prefillUsername = '', disabled = false, consentAccepted = false
   };
 
   return (
-    <div className="login-container" style={{ margin: '0 auto', width: '100%', maxWidth: '300px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="login-container" style={{ margin: '0 auto', width: '100%', maxWidth: '300px', height: '100%', display: 'flex', flexDirection: 'column', opacity: disabled || !consentAccepted ? 0.6 : 1, pointerEvents: disabled || !consentAccepted ? 'none' : 'auto' }}>
       
       {!consentAccepted && (
-        <div className="alert alert-warning" role="alert" style={{ padding: '8px', fontSize: '0.85rem' }}>
-          Please accept consent first.
+        <div className="alert alert-secondary" role="alert" style={{ padding: '8px', fontSize: '0.85rem' }}>
+          Please complete steps 1 & 2 first.
         </div>
       )}
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>

@@ -38,4 +38,4 @@ telemetry/.venv/
 
 # Mongo data — excluded from Git to avoid 100MB file limits and binary churn
 # The CI workflow will upload a compressed mongodump artifact on each push.
-mongo/
+Mongo/

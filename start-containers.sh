@@ -55,14 +55,15 @@ rm_if_exists rasa-frontend-bldg1
 rm_if_exists abacws-visualiser
 rm_if_exists abacws-api
 rm_if_exists abacws-mongo
+rm_if_exists abacws-survey-mongo
 
 # Run Mongo
 info "Starting mongo"
 docker run -d \
-  --name abacws-mongo \
+  --name abacws-survey-mongo \
   --restart always \
   -v ${VOLUME}:/data/db \
-  -p 27017:27017 \
+  -p 27018:27017 \
   --network ${NETWORK} \
   mongo
 
@@ -80,7 +81,7 @@ docker run -d \
   --hostname apihost \
   --restart always \
   -e API_PORT=5000 \
-  -e MONGO_URL=mongodb://mongo:27017 \
+  -e MONGO_URL=mongodb://abacws-survey-mongo:27017 \
   -e JWT_SECRET='change-this-jwt-secret-in-production-use-strong-random-string' \
   -e SESSION_SECRET='change-this-secret-in-production' \
   -e API_KEY='V3rySecur3Pas3word' \

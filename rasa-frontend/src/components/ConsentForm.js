@@ -307,68 +307,56 @@ export default function ConsentForm({ onAccepted }) {
   };
 
   return (
-    <div>
-      <div className="text-center mb-4">
-        <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>📝</div>
-        <h3 style={{ color: '#333', fontWeight: '600', marginBottom: '8px' }}>Consent Form</h3>
-      </div>
+    <div className="d-flex flex-column h-100">
       
-      <div className="p-3 mb-3" style={{ 
+      <div className="p-2 mb-2 flex-shrink-0" style={{ 
         background: 'linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%)',
         borderRadius: '8px',
-        fontSize: '0.9rem',
-        lineHeight: '1.6'
+        fontSize: '0.8rem',
+        lineHeight: '1.4'
       }}>
-        <div className="mb-2">
+        <div className="mb-1">
           <strong style={{ color: '#667eea' }}>Study Title:</strong>
-          <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+          <div className="text-muted" style={{ fontSize: '0.75rem' }}>
             <em>A Survey-Based Study to Develop a Corpus of Natural Language Queries for Smart Building Interaction</em>
           </div>
         </div>
-        <div className="mb-2">
-          <strong style={{ color: '#667eea' }}>SREC Reference:</strong>
-          <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>COMSC/Ethics/2025/044</span>
-        </div>
         <div>
-          <strong style={{ color: '#667eea' }}>Lead Researcher:</strong>
-          <span className="text-muted ms-2" style={{ fontSize: '0.85rem' }}>Suhas Devmane</span>
-        </div>
-        <div>
-          <strong style={{ color: '#667eea' }}>Need assistance during the guided survey?</strong>
-          <span className="text-muted d-block" style={{ fontSize: '0.85rem' }}>
-            Email <a href="mailto:Devmanesp1@cardiff.ac.uk" style={{ color: '#3e82ff' }}>Devmanesp1@cardiff.ac.uk</a> for help or clarifications.
-          </span>
+          <strong style={{ color: '#667eea' }}>Use:</strong>
+          <span className="text-muted ms-1" style={{ fontSize: '0.75rem' }}>Research & Data collection</span>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="mb-3">
-          <label className="form-label" style={{ fontWeight: '600', color: '#333' }}>
-            Participant Name <span className="text-muted" style={{ fontWeight: '400', fontSize: '0.9rem' }}>(will be printed on the PDF)</span>
+      <form onSubmit={handleSubmit} className="d-flex flex-column flex-grow-1" style={{ minHeight: 0 }}>
+        <div className="mb-2 flex-shrink-0">
+          <label className="form-label mb-1" style={{ fontWeight: '600', color: '#333', fontSize: '0.9rem' }}>
+            Participant Name <span className="text-muted" style={{ fontWeight: '400', fontSize: '0.8rem' }}>(for PDF)</span>
           </label>
           <input 
             type="text" 
-            className="form-control" 
+            className="form-control form-control-sm" 
             value={username} 
             onChange={(e) => setUsername(e.target.value)} 
             placeholder="Enter your name" 
             disabled={submitting} 
             required 
             style={{ 
-              borderRadius: '8px',
-              padding: '10px 14px',
-              fontSize: '0.95rem'
+              borderRadius: '6px',
+              padding: '6px 10px',
+              fontSize: '0.9rem'
             }}
           />
         </div>
 
-        <div className="mb-3 p-3" style={{ 
+        <div className="mb-2 p-2 d-flex flex-column" style={{ 
           background: '#f8f9fa', 
           borderRadius: '8px',
-          border: '1px solid #e0e0e0'
+          border: '1px solid #e0e0e0',
+          height: '480px', /* Reduced height as requested */
+          minHeight: 0
         }}>
-          <div className="d-flex align-items-center justify-content-between mb-2">
-            <label style={{ fontWeight: '600', color: '#333', marginBottom: 0 }}>
+          <div className="d-flex align-items-center justify-content-between mb-2 flex-shrink-0">
+            <label style={{ fontWeight: '600', color: '#333', marginBottom: 0, fontSize: '0.9rem' }}>
               Consent Statements
             </label>
             <div className="form-check" style={{ marginBottom: 0 }}>
@@ -380,22 +368,21 @@ export default function ConsentForm({ onAccepted }) {
                 onChange={(e) => toggleAll(e.target.checked)}
                 style={{ cursor: 'pointer' }}
               />
-              <label className="form-check-label" htmlFor="selectAll" style={{ cursor: 'pointer', fontWeight: '600', color: '#667eea' }}>
+              <label className="form-check-label" htmlFor="selectAll" style={{ cursor: 'pointer', fontWeight: '600', color: '#667eea', fontSize: '0.85rem' }}>
                 Select All
               </label>
             </div>
           </div>
 
-          <div className="mt-3" style={{ 
-            maxHeight: '340px', 
+          <div className="mt-1 flex-grow-1" style={{ 
             overflowY: 'auto', 
-            paddingRight: '8px',
-            fontSize: '0.9rem'
+            paddingRight: '4px',
+            fontSize: '0.85rem'
           }}>
             {consentLines.map((line, idx) => (
               <div 
                 key={idx} 
-                className="form-check mb-3 p-2" 
+                className="form-check mb-2 p-2" 
                 style={{ 
                   background: checks[idx] ? 'rgba(102,126,234,0.05)' : '#fff',
                   borderRadius: '6px',
@@ -419,7 +406,7 @@ export default function ConsentForm({ onAccepted }) {
                   htmlFor={`c-${idx}`}
                   style={{ 
                     cursor: 'pointer',
-                    lineHeight: '1.6',
+                    lineHeight: '1.4',
                     color: '#333'
                   }}
                 >
@@ -432,14 +419,14 @@ export default function ConsentForm({ onAccepted }) {
 
         {message && (
           <div 
-            className="alert mb-3" 
+            className="alert mb-2 py-2 px-3 flex-shrink-0" 
             role="alert"
             style={{
               background: message.includes('Failed') ? '#fee' : 'linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%)',
               border: message.includes('Failed') ? '1px solid #fcc' : '1px solid rgba(102,126,234,0.2)',
               borderRadius: '8px',
               color: message.includes('Failed') ? '#c33' : '#333',
-              fontSize: '0.9rem'
+              fontSize: '0.85rem'
             }}
           >
             {message.includes('recorded') && '✅ '}
@@ -448,45 +435,31 @@ export default function ConsentForm({ onAccepted }) {
           </div>
         )}
 
-        <button 
-          type="submit" 
-          className="btn btn-primary w-100" 
-          disabled={submitting || !allChecked || !username.trim()}
-          style={{
-            padding: '12px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            boxShadow: '0 4px 12px rgba(102,126,234,0.3)',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseOver={(e) => {
-            if (!submitting && allChecked && username.trim()) {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(102,126,234,0.4)';
-            }
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(102,126,234,0.3)';
-          }}
-        >
-          {submitting ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Generating PDF...
-            </>
-          ) : (
-            <>📄 Accept & Download PDF</>
-          )}
-        </button>
-        
-        <div className="text-center mt-3" style={{ fontSize: '0.85rem', color: '#666' }}>
-          <small>
-            By clicking accept, you confirm that you have read and understood all consent statements above.
-          </small>
+        <div className="flex-shrink-0 mt-auto">
+          <button 
+            type="submit" 
+            className="btn btn-primary w-100 btn-sm" 
+            disabled={submitting || !allChecked || !username.trim()}
+            style={{
+              padding: '10px',
+              fontSize: '0.95rem',
+              fontWeight: '600',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(102,126,234,0.3)',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {submitting ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Generating PDF...
+              </>
+            ) : (
+              <>📄 Accept & Download PDF</>
+            )}
+          </button>
         </div>
       </form>
     </div>

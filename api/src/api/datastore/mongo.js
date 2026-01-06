@@ -3,6 +3,8 @@ const client = require('../database');
 const { DEVICE_COLLECTION_PREFIX } = require('../constants');
 const { upsertDevice } = require('../devicesFile');
 
+const ensuredIndices = new Set();
+
 function getDeviceCollection(deviceName) {
   return client.db().collection(`${DEVICE_COLLECTION_PREFIX}_${deviceName}`);
 }
@@ -43,8 +45,18 @@ async function latestDeviceData(name) {
 async function insertDeviceData(name, data) {
   const col = getDeviceCollection(name);
   await col.insertOne(data);
-  if (!(await col.indexExists('timestamp'))) {
-    try { await col.createIndex({ timestamp: 1 }, { name: 'timestamp' }); } catch (_) {}
+  
+  if (!ensuredIndices.has(name)) {
+    // Only check/create index if not already ensured for this session
+    try {
+      if (!(await col.indexExists('timestamp'))) {
+        await col.createIndex({ timestamp: 1 }, { name: 'timestamp' });
+      }
+    } catch (_) {
+        // Fallback or race condition, try creating anyway
+        try { await col.createIndex({ timestamp: 1 }, { name: 'timestamp' }); } catch (ignore) {}
+    }
+    ensuredIndices.add(name);
   }
 }
 

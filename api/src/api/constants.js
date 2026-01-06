@@ -3,7 +3,7 @@ const LogLevel = { info: 2, warn: 1, error: 0 };
 // Heroku uses PORT env var, fallback to API_PORT for local development
 const PORT = Number(process.env.PORT) || Number(process.env.API_PORT) || 5000;
 const PRODUCTION = process.env.PRODUCTION === 'true' || process.env.NODE_ENV === 'production';
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/abacws";
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URL || "mongodb://localhost:27017/abacws";
 const API_KEY = process.env.API_KEY || "V3rySecur3Pas3word";
 const DEVICE_COLLECTION_PREFIX = "d";
 

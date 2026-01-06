@@ -11,7 +11,7 @@ PORT = int(os.getenv("PORT", "8088"))
 API_HEALTH = os.getenv("API_HEALTH", "http://api:5000/health")
 VIS_HEALTH = os.getenv("VIS_HEALTH", "http://visualiser:80/health")
 API_BASE = os.getenv("API_BASE", "http://api:5000/api")
-INTERVAL_SECONDS = os.getenv("INTERVAL_SECONDS", "10")
+INTERVAL_SECONDS = os.getenv("INTERVAL_SECONDS", "30")
 
 child = None
 
@@ -73,6 +73,6 @@ if __name__ == '__main__':
             if child and child.poll() is None:
                 child.terminate()
                 try:
-                    child.wait(timeout=10)
+                    child.wait(timeout=30)
                 except Exception:
                     child.kill()

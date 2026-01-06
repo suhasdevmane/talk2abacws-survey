@@ -5,8 +5,25 @@ import db from '../db';
 
 const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
+const ROLES = [
+  "Facility Managers / Building Maintenance Teams",
+  "Building Owners/Property Managers",
+  "Occupants/Tenants/Employees",
+  "Health and Safety Officers",
+  "Sustainability and Energy Management Teams",
+  "Compliance and Regulatory Bodies",
+  "Insurance Companies",
+  "Architects/Building Designers",
+  "Researchers/Academics",
+  "IT/Data Scientists",
+  "Ontology Focused",
+  "Vendors/Service Providers",
+  "Real Estate Developers"
+];
+
 function Login({ prefillUsername = '', disabled = false, consentAccepted = false }) {
   const [username, setUsername] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -31,6 +48,11 @@ function Login({ prefillUsername = '', disabled = false, consentAccepted = false
       return;
     }
 
+    if (selectedRoles.length === 0) {
+      alert('Please select at least one role/profile.');
+      return;
+    }
+
     setIsLoading(true);
 
     const doRegister = async () => {
@@ -42,6 +64,7 @@ function Login({ prefillUsername = '', disabled = false, consentAccepted = false
           body: JSON.stringify({ 
             username: username.trim(), 
             displayName: username.trim(), // Use username as display name by default
+            roles: selectedRoles,
             consentAccepted: consentAccepted,
             consentDate: new Date().toISOString()
           })
@@ -95,7 +118,10 @@ function Login({ prefillUsername = '', disabled = false, consentAccepted = false
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // Important: Send/receive cookies
-        body: JSON.stringify({ username: username.trim() })
+        body: JSON.stringify({ 
+          username: username.trim(),
+          roles: selectedRoles
+        })
       });
       
       const data = await res.json();
@@ -151,32 +177,100 @@ function Login({ prefillUsername = '', disabled = false, consentAccepted = false
     }
   };
 
+  const toggleRole = (role) => {
+    setSelectedRoles(prev => 
+      prev.includes(role) 
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
+  };
+
   return (
-    <div className="login-container" style={{ margin: '10px auto', width: '300px' }}>
-      <h2>Login / Register</h2>
-      <p><strong>Welcome, and thank you for taking part in the survey.</strong></p>
-      <p>Please enter your username to continue.</p>
+    <div className="login-container" style={{ margin: '0 auto', width: '100%', maxWidth: '300px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      
       {!consentAccepted && (
-        <div className="alert alert-warning" role="alert">
-          Please review and accept the consent form first.
+        <div className="alert alert-warning" role="alert" style={{ padding: '8px', fontSize: '0.85rem' }}>
+          Please accept consent first.
         </div>
       )}
-      <form onSubmit={handleLogin}>
-        <div>
-          <label>Username:</label>
-          <input 
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required 
-            disabled={isLoading || disabled || !consentAccepted}
-            style={{ width: '100%', marginBottom: '10px' }}
-            placeholder="Enter your username"
-          />
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        <div style={{ marginBottom: '10px', flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '150px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem' }}>Select Profile(s):</label>
+          
+          <div style={{
+            flexGrow: 1,
+            overflowY: 'auto',
+            border: '1px solid #ced4da',
+            borderRadius: '4px',
+            padding: '4px',
+            backgroundColor: disabled || !consentAccepted ? '#e9ecef' : '#fff',
+            height: '200px'
+          }}>
+            {ROLES.map((role) => (
+              <div 
+                key={role} 
+                onClick={() => !disabled && consentAccepted && toggleRole(role)}
+                style={{
+                  padding: '6px 8px',
+                  borderBottom: '1px solid #f1f3f5',
+                  cursor: disabled || !consentAccepted ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  backgroundColor: selectedRoles.includes(role) ? '#e7f5ff' : '#fff',
+                  borderRadius: '4px',
+                  marginBottom: '2px'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedRoles.includes(role)}
+                  readOnly
+                  style={{ marginTop: '3px', marginRight: '8px', pointerEvents: 'none' }}
+                />
+                <span style={{ fontSize: '0.85rem', lineHeight: '1.3' }}>{role}</span>
+              </div>
+            ))}
+          </div>
+          
+          {selectedRoles.length === 0 && (
+            <small style={{ color: '#dc3545', fontSize: '0.75rem', display: 'block', marginTop: '2px' }}>
+              * Required
+            </small>
+          )}
         </div>
-        <button type="submit" disabled={isLoading || disabled || !consentAccepted} style={{ width: '100%' }}>
-          {isLoading ? 'Please wait...' : 'Login / Register'}
-        </button>
+
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ marginBottom: '10px' }}>
+            <label style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>Username:</label>
+            <input 
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required 
+              disabled={isLoading || disabled || !consentAccepted}
+              style={{ width: '100%', padding: '8px', fontSize: '0.9rem', border: '1px solid #ced4da', borderRadius: '4px' }}
+              placeholder="Enter username"
+            />
+          </div>
+          <button 
+            type="submit" 
+            disabled={isLoading || disabled || !consentAccepted} 
+            className="btn btn-primary"
+            style={{ 
+              width: '100%', 
+              padding: '10px', 
+              fontSize: '0.95rem', 
+              fontWeight: '600',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(102,126,234,0.3)',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {isLoading ? 'Processing...' : 'Login / Register'}
+          </button>
+        </div>
       </form>
       <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>        
       </div>

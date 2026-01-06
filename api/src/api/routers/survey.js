@@ -103,11 +103,15 @@ router.post('/register', async (req, res) => {
             console.log('Registration failed: User already exists:', username);
             return res.status(400).json({ error: 'Username already exists' });
         }
+        
+        // Validate roles
+        const roles = Array.isArray(req.body.roles) ? req.body.roles : [];
 
         // Create user document (no password)
         const result = await usersCollection.insertOne({
             username: username.toLowerCase(),
             displayName: username,
+            roles: roles,
             createdAt: new Date(),
             lastLogin: new Date(),
             questionCount: 0,
@@ -175,10 +179,18 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Username not found' });
         }
 
-        // Update last login timestamp
+        // Update last login timestamp and roles if provided
+        const updateDoc = {
+            $set: { lastLogin: new Date() }
+        };
+        
+        if (req.body.roles && Array.isArray(req.body.roles)) {
+            updateDoc.$set.roles = req.body.roles;
+        }
+
         await usersCollection.updateOne(
             { _id: user._id },
-            { $set: { lastLogin: new Date() } }
+            updateDoc
         );
 
         // Generate JWT token
@@ -363,6 +375,16 @@ router.get('/admin/questions', async (req, res) => {
     try {
         const db = await connectDB();
         const questionsCollection = db.collection('questions');
+        const usersCollection = db.collection('users');
+
+        // Fetch all users to create a map of roles
+        const users = await usersCollection.find({}).toArray();
+        const userRolesMap = {};
+        users.forEach(u => {
+            if (u.username) {
+                userRolesMap[u.username.toLowerCase()] = u.roles || [];
+            }
+        });
         
         const questions = await questionsCollection
             .find({})
@@ -371,10 +393,15 @@ router.get('/admin/questions', async (req, res) => {
 
         // Group by user
         const userQuestions = questions.reduce((acc, q) => {
-            if (!acc[q.username]) {
-                acc[q.username] = [];
+            const uname = q.username; 
+            // Initialize entry if missing
+            if (!acc[uname]) {
+                acc[uname] = {
+                    roles: userRolesMap[uname.toLowerCase()] || [],
+                    questions: []
+                };
             }
-            acc[q.username].push({
+            acc[uname].questions.push({
                 question: q.question,
                 timestamp: q.timestamp
             });

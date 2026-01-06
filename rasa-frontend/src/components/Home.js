@@ -57,49 +57,81 @@ export default function Home() {
       <TopNav />
 
       {/* Intro / Content */}
-      <div className="container-fluid px-4 mt-4" id="content" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="container-fluid px-2 mt-2" id="content" style={{ maxWidth: '1400px', margin: '0 auto', height: 'calc(100vh - 70px)', overflow: 'hidden' }}>
         {!currentUser ? (
-          <div className="row g-4">
+          <div className="row g-2 h-100">
             {/* Left: Info / PI sheet - moved to left for first impression */}
-            <div className="col-12 col-lg-3">
-              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px' }}>
-                <div className="card-body d-flex flex-column">
-                  <div className="text-center mb-3">
-                    <div style={{ fontSize: '2.5rem', color: '#667eea' }}>📋</div>
-                    <h5 className="mt-2" style={{ color: '#333', fontWeight: '600' }}>Study Information</h5>
+            <div className="col-12 col-lg-3 h-100">
+              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px', overflowY: 'auto' }}>
+                <div className="card-body d-flex flex-column p-3">
+                  {/* Step 1 Header */}
+                  <div className="d-flex align-items-center mb-3 pb-2 border-bottom">
+                    <div style={{
+                      width: '32px', height: '32px', flexShrink: 0,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '50%', color: 'white', fontWeight: 'bold',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginRight: '12px', fontSize: '1rem'
+                    }}>1</div>
+                    <div>
+                      <h5 className="m-0" style={{ color: '#333', fontWeight: '600', fontSize: '1.1rem' }}>Study Information</h5>
+                    </div>
                   </div>
-                  <p className="text-muted" style={{ fontSize: '0.95rem' }}>
-                    Please review all study information before providing consent. This document explains:
-                  </p>
-                  <ul className="text-muted mb-3" style={{ fontSize: '0.9rem', lineHeight: '1.8' }}>
-                    <li>Research objectives</li>
-                    <li>Data collection methods</li>
-                    <li>How data will be used</li>
-                    <li>Your rights and withdrawal options</li>
-                    <li>Data protection measures</li>
-                  </ul>
-                  <button 
-                    className="btn w-100" 
-                    onClick={handleInfoSheetDownload}
-                    style={{ 
-                      borderRadius: '8px', 
-                      fontWeight: '500',
-                      background: infoSheetDownloaded ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'transparent',
-                      color: infoSheetDownloaded ? '#fff' : '#667eea',
-                      border: infoSheetDownloaded ? 'none' : '2px solid #667eea',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    {infoSheetDownloaded ? '✅ Information Sheet Downloaded' : '📄 View Full Information Sheet'}
-                  </button>
+
+                  <div className="mb-3" style={{ fontSize: '0.85rem', lineHeight: '1.5', color: '#555' }}>
+                    <p className="mb-1"><strong>Study Title:</strong><br/>
+                    A Survey-Based Study to Develop a Corpus of Natural Language Queries for Smart Building Interaction</p>
+                    
+                    <p className="mb-1"><strong>SREC Reference:</strong> COMSC/Ethics/2025/044</p>
+                    
+                    <p className="mb-1"><strong>Lead Researcher:</strong> Suhas Devmane</p>
+                    
+                    <p className="mb-0 mt-2" style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#6c757d' }}>
+                      <strong>Need assistance during the guided survey?</strong><br/>
+                      Email <a href="mailto:Devmanesp1@cardiff.ac.uk" style={{ color: '#667eea' }}>Devmanesp1@cardiff.ac.uk</a> for help or clarifications.
+                    </p>
+                  </div>
+                  <div className="mt-auto">
+                    <button 
+                      className="btn w-100 btn-sm" 
+                      onClick={handleInfoSheetDownload}
+                      style={{ 
+                        borderRadius: '8px', 
+                        fontWeight: '600',
+                        fontSize: '0.95rem',
+                        padding: '10px',
+                        background: infoSheetDownloaded ? 'linear-gradient(135deg, #28a745 0%, #20c997 100%)' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        boxShadow: '0 4px 12px rgba(102,126,234,0.3)',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      {infoSheetDownloaded ? '✅ Downloaded' : '📄 View Full Info Sheet'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Center: Consent - larger and more prominent */}
-            <div className="col-12 col-lg-6">
-              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px' }}>
-                <div className="card-body">
+            <div className="col-12 col-lg-6 h-100">
+              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px', overflow: 'hidden' }}>
+                <div className="card-body p-3 d-flex flex-column" style={{ height: '100%' }}>
+                  {/* Step 2 Header */}
+                  <div className="d-flex align-items-center mb-2 pb-2 border-bottom flex-shrink-0">
+                    <div style={{
+                      width: '32px', height: '32px', flexShrink: 0,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '50%', color: 'white', fontWeight: 'bold',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginRight: '12px', fontSize: '1rem'
+                    }}>2</div>
+                    <div>
+                      <h5 className="m-0" style={{ color: '#333', fontWeight: '600', fontSize: '1.1rem' }}>Consent Form</h5>
+                    </div>
+                  </div>
+                  
                   <ConsentForm onAccepted={(name) => {
                     // Hint for login prefill
                     sessionStorage.setItem('prefillUsername', name);
@@ -110,9 +142,23 @@ export default function Home() {
             </div>
 
             {/* Right: Login (gated) */}
-            <div className="col-12 col-lg-3">
-              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px' }}>
-                <div className="card-body d-flex flex-column">
+            <div className="col-12 col-lg-3 h-100">
+              <div className="card shadow-sm h-100" style={{ border: 'none', borderRadius: '12px', overflowY: 'auto' }}>
+                <div className="card-body d-flex flex-column p-3">
+                  {/* Step 3 Header */}
+                  <div className="d-flex align-items-center mb-3 pb-2 border-bottom">
+                    <div style={{
+                      width: '32px', height: '32px', flexShrink: 0,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2ff 100%)',
+                      borderRadius: '50%', color: 'white', fontWeight: 'bold',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginRight: '12px', fontSize: '1rem'
+                    }}>3</div>
+                    <div>
+                      <h5 className="m-0" style={{ color: '#333', fontWeight: '600', fontSize: '1.1rem' }}>Login / Register</h5>
+                    </div>
+                  </div>
+
                   <Login prefillUsername={sessionStorage.getItem('prefillUsername') || localStorage.getItem('consentUsername') || ''}
                          disabled={!consentAccepted}
                          consentAccepted={consentAccepted} />

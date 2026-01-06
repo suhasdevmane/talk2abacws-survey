@@ -43,8 +43,15 @@ function Get-AllQuestions {
         Write-Host ""
         
         foreach ($username in $response.questionsByUser.PSObject.Properties.Name) {
-            $questions = $response.questionsByUser.$username
-            Write-Host "User: $username ($($questions.Count) questions)" -ForegroundColor Cyan
+            $userObj = $response.questionsByUser.$username
+            $questions = $userObj.questions
+            $roles = ""
+            if ($userObj.roles) { $roles = $userObj.roles -join ", " }
+            
+            Write-Host "User: $username" -ForegroundColor Cyan
+            if ($roles) { Write-Host "Roles: $roles" -ForegroundColor Gray }
+            Write-Host "Count: $($questions.Count) questions" -ForegroundColor Gray
+            
             for ($i = 0; $i -lt $questions.Count; $i++) {
                 $q = $questions[$i]
                 $timestamp = [DateTime]::Parse($q.timestamp).ToString("yyyy-MM-dd HH:mm:ss")
@@ -64,8 +71,11 @@ function Get-QuestionsByUser {
         Write-Host ""
         
         foreach ($username in $response.questionsByUser.PSObject.Properties.Name) {
-            $questions = $response.questionsByUser.$username
-            Write-Host "$username ($($questions.Count) questions)" -ForegroundColor Cyan
+            $userObj = $response.questionsByUser.$username
+            $qCount = 0
+            if ($userObj.questions) { $qCount = $userObj.questions.Count } elseif ($userObj -is [Array]) { $qCount = $userObj.Count }
+            
+            Write-Host "$username ($qCount questions)" -ForegroundColor Cyan
         }
     } catch {
         Write-Host "Error fetching questions: $_" -ForegroundColor Red
@@ -77,6 +87,8 @@ function Export-Questions {
     try {
         $response = Invoke-RestMethod -Uri "$API_BASE/survey/admin/questions" -Method Get
         $filename = "survey-questions-$(Get-Date -Format 'yyyy-MM-dd-HHmmss').json"
+        
+        # Save raw JSON (now includes roles)
         $response | ConvertTo-Json -Depth 10 | Out-File $filename
         Write-Host "✓ Questions exported to: $filename" -ForegroundColor Green
         
@@ -84,9 +96,15 @@ function Export-Questions {
         $csvFilename = "survey-questions-$(Get-Date -Format 'yyyy-MM-dd-HHmmss').csv"
         $flatQuestions = @()
         foreach ($username in $response.questionsByUser.PSObject.Properties.Name) {
-            foreach ($q in $response.questionsByUser.$username) {
+            $userObj = $response.questionsByUser.$username
+            $questions = $userObj.questions
+            $roles = ""
+            if ($userObj.roles) { $roles = $userObj.roles -join "; " }
+
+            foreach ($q in $questions) {
                 $flatQuestions += [PSCustomObject]@{
                     Username = $username
+                    Roles = $roles
                     Question = $q.question
                     Timestamp = $q.timestamp
                 }

@@ -65,6 +65,16 @@ async function run() {
   const db = client.db(DB_NAME);
 
   try {
+    // Fetch users for role lookup
+    const users = await db.collection('users').find({}).toArray();
+    const userRoles = new Map(); // username (lower) -> roles string
+    for (const u of users) {
+        if (u.username) {
+            const roles = Array.isArray(u.roles) ? u.roles.join('; ') : (u.roles || '');
+            userRoles.set(u.username.toLowerCase(), roles);
+        }
+    }
+
     const questions = await db.collection('questions')
       .find({})
       .project({ _id: 0, username: 1, question: 1, timestamp: 1 })
@@ -74,8 +84,12 @@ async function run() {
     console.log(`Loaded ${questions.length} question(s) from ${DB_NAME}.questions`);
 
     // 1) Flat CSV of all questions
-    const qRows = questions.map((q) => [q.username || '', q.question || '', (q.timestamp ? new Date(q.timestamp).toISOString() : '')]);
-    const qFile = writeCsv('questions.csv', ['username', 'question', 'timestamp_iso'], qRows);
+    const qRows = questions.map((q) => {
+        const u = (q.username || '').toLowerCase();
+        const roles = userRoles.get(u) || '';
+        return [q.username || '', roles, q.question || '', (q.timestamp ? new Date(q.timestamp).toISOString() : '')];
+    });
+    const qFile = writeCsv('questions.csv', ['username', 'roles', 'question', 'timestamp_iso'], qRows);
     console.log('Wrote', qFile);
 
     // 2) Count by username
@@ -84,8 +98,11 @@ async function run() {
       const u = (q.username || '').toLowerCase();
       byUser.set(u, (byUser.get(u) || 0) + 1);
     }
-    const userRows = Array.from(byUser.entries()).sort((a, b) => b[1] - a[1]);
-    const uFile = writeCsv('user_question_counts.csv', ['username', 'count'], userRows);
+    const userRows = Array.from(byUser.entries())
+        .map(([u, count]) => [u, userRoles.get(u) || '', count])
+        .sort((a, b) => b[2] - a[2]); // Sort by count
+        
+    const uFile = writeCsv('user_question_counts.csv', ['username', 'roles', 'count'], userRows);
     console.log('Wrote', uFile);
 
     // 3) Optional: Count device mentions in question text

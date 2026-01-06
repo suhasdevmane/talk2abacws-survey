@@ -40,7 +40,7 @@ def generate_sensor_data() -> Dict[str, dict]:
 def send(session: requests.Session, device_name: str, payload: dict) -> bool:
     url = f"{API_BASE}/devices/{device_name}/data"
     try:
-        r = session.put(url, headers=HEADERS, data=json.dumps(payload), timeout=10)
+        r = session.put(url, headers=HEADERS, data=json.dumps(payload), timeout=30)
         r.raise_for_status()
         logging.debug(f"Sent data to {device_name}: {payload}")
         return True
